@@ -28,4 +28,9 @@ class Question extends Model
     {
         return $this->hasMany(QuestionOption::class)->orderBy('option_key');
     }
-}
+
+    public function userAnswers()
+    {
+        return $this->hasMany(UserAnswer::class);
+    }
+}   

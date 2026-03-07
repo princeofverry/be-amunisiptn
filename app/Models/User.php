@@ -57,4 +57,9 @@ class User extends Authenticatable
     public function tryoutAccesses(){
         return $this->hasMany(UserTryoutAccess::class);
     }
+
+    public function tryoutSessions()
+{
+    return $this->hasMany(TryoutSession::class);
+}
 }
