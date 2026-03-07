@@ -8,7 +8,7 @@ class UserAnswer extends Model
 {
     protected $fillable = [
         'tryout_session_id',
-        'question_id',
+        'tryout_question_id',
         'answer',
         'is_correct',
         'answered_at',
@@ -24,8 +24,8 @@ class UserAnswer extends Model
         return $this->belongsTo(TryoutSession::class, 'tryout_session_id');
     }
 
-    public function question()
+    public function tryoutQuestion()
     {
-        return $this->belongsTo(Question::class);
+        return $this->belongsTo(TryoutQuestion::class);
     }
 }
