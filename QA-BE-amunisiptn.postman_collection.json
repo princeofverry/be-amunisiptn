@@ -1,0 +1,1513 @@
+{
+  "info": {
+    "_postman_id": "0a0684cb-36b2-4f29-bc54-3339550e1e55",
+    "name": "QA-BE-amunisiptn",
+    "description": "Collection Postman yang sudah disesuaikan dengan controller asli Laravel Tryout API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "36163564"
+  },
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set(\"token\", json.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"User Test\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"password_confirmation\": \"{{user_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register user biasa. Token response bisa otomatis tersimpan."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada token\", function () { pm.expect(json.token).to.exist; });",
+                  "pm.collectionVariables.set(\"token\", json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login admin atau user. Default mengarah ke admin@example.com."
+          },
+          "response": []
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Admin Flow",
+      "item": [
+        {
+          "name": "Create Subtest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.subtest && json.subtest.id) { pm.collectionVariables.set(\"subtest_id\", json.subtest.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Penalaran Umum\",\n  \"category\": \"TPS\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "description": "Controller butuh name dan category. category hanya TPS atau Literasi."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Subtest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Penalaran Umum Update\",\n  \"category\": \"TPS\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subtests/{{subtest_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests",
+                "{{subtest_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Subtests",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Question Bank",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) { pm.collectionVariables.set(\"question_bank_id\", json.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id}}\",\n  \"question_text\": \"2 + 2 = ?\",\n  \"discussion\": \"2 + 2 = 4\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"3\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"4\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"5\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"6\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "description": "Sesuai controller: question_text, discussion, correct_answer, options[]."
+          },
+          "response": []
+        },
+        {
+          "name": "List Question Bank",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Show Question Bank",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank/{{question_bank_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank",
+                "{{question_bank_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Question Bank",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id}}\",\n  \"question_text\": \"3 + 3 = ?\",\n  \"discussion\": \"3 + 3 = 6\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"5\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"6\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"7\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"8\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/question-bank/{{question_bank_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank",
+                "{{question_bank_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) { pm.collectionVariables.set(\"tryout_id\", json.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tryout SNBT 2026\",\n  \"description\": \"Simulasi tryout SNBT\",\n  \"is_published\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Tryouts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Show Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tryout SNBT 2026 Update\",\n  \"description\": \"Simulasi tryout SNBT update\",\n  \"is_published\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Attach Subtest to Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) { pm.collectionVariables.set(\"tryout_subtest_id\", json.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id}}\",\n  \"duration_minutes\": 30,\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Tryout Subtest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 35,\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Access Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) { pm.collectionVariables.set(\"access_code_id\", json.data.id); }",
+                  "if (json.data && json.data.code) { pm.collectionVariables.set(\"redeem_code\", json.data.code); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{redeem_code}}\",\n  \"max_usage\": 100,\n  \"is_active\": true,\n  \"expired_at\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/access-codes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "access-codes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Access Codes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/access-codes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "access-codes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Show Access Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/access-codes/{{access_code_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "access-codes",
+                "{{access_code_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Access Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{redeem_code}}\",\n  \"max_usage\": 150,\n  \"is_active\": true,\n  \"expired_at\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/access-codes/{{access_code_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "access-codes",
+                "{{access_code_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Attach Bank Question to Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) { pm.collectionVariables.set(\"tryout_question_id\", json.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "bank-questions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Tryout Questions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "bank-questions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Show Tryout Question",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/bank-questions/{{tryout_question_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "bank-questions",
+                "{{tryout_question_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Tryout Question",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_no\": 2,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/bank-questions/{{tryout_question_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "bank-questions",
+                "{{tryout_question_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. User Flow",
+      "item": [
+        {
+          "name": "Redeem Access Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{redeem_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/access-codes/redeem",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "access-codes",
+                "redeem"
+              ]
+            },
+            "description": "Pakai token user biasa, bukan admin, kalau sistem role kamu membedakan."
+          },
+          "response": []
+        },
+        {
+          "name": "My Tryouts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/my-tryouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "my-tryouts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Start Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "start"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Show Subtest Questions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "exam"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/bank-questions/{{tryout_question_id}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "bank-questions",
+                "{{tryout_question_id}}",
+                "answer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Finish Tryout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "finish"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Result",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/result",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "result"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Cleanup Optional",
+      "item": [
+        {
+          "name": "Delete Tryout Question",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}/bank-questions/{{tryout_question_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}",
+                "bank-questions",
+                "{{tryout_question_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Access Code",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/access-codes/{{access_code_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "access-codes",
+                "{{access_code_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Tryout Subtest",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Question Bank",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank/{{question_bank_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank",
+                "{{question_bank_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Tryout",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Subtest",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests/{{subtest_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests",
+                "{{subtest_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api"
+    },
+    {
+      "key": "token",
+      "value": "10|gAcgkzI5niZxnYo4ZwZDgzhNIFJYtrdY8cMTIT6Y4441f1e1"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "admin_password",
+      "value": "password"
+    },
+    {
+      "key": "user_email",
+      "value": "user@test.com"
+    },
+    {
+      "key": "user_password",
+      "value": "password"
+    },
+    {
+      "key": "subtest_id",
+      "value": "1"
+    },
+    {
+      "key": "tryout_id",
+      "value": "1"
+    },
+    {
+      "key": "tryout_subtest_id",
+      "value": "1"
+    },
+    {
+      "key": "question_bank_id",
+      "value": "1"
+    },
+    {
+      "key": "tryout_question_id",
+      "value": "1"
+    },
+    {
+      "key": "access_code_id",
+      "value": "1"
+    },
+    {
+      "key": "redeem_code",
+      "value": "TRYOUT-ABC-001"
+    }
+  ]
+}
