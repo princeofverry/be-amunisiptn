@@ -9,7 +9,6 @@ class Tryout extends Model
     protected $fillable = [
         'title',
         'description',
-        'duration_minutes',
         'is_published',
         'created_by',
     ];
@@ -23,8 +22,13 @@ class Tryout extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function accessCode()
+    public function accessCodes()
     {
         return $this->hasMany(AccessCode::class);
+    }
+
+    public function tryoutSubtests()
+    {
+        return $this->hasMany(TryoutSubtest::class)->orderBy('order_no');
     }
 }
