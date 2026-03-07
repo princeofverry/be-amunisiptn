@@ -23,13 +23,13 @@ class TryoutSubtest extends Model
         return $this->belongsTo(Tryout::class);
     }
 
-    public function questions()
-    {
-        return $this->hasMany(Question::class)->orderBy('order_no');
-    }
-
     public function subtest()
     {
         return $this->belongsTo(Subtest::class);
+    }
+
+    public function tryoutQuestions()
+    {
+        return $this->hasMany(TryoutQuestion::class)->orderBy('order_no');
     }
 }

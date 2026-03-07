@@ -15,4 +15,9 @@ class Subtest extends Model
     {
         return $this->hasMany(TryoutSubtest::class);
     }
+
+    public function questionBank()
+    {
+        return $this->hasMany(QuestionBank::class);
+    }
 }

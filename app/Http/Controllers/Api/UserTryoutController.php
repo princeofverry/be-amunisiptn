@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Question;
 use App\Models\Tryout;
+use App\Models\TryoutQuestion;
 use App\Models\TryoutSession;
 use App\Models\TryoutSubtest;
 use App\Models\UserAnswer;
@@ -99,21 +99,24 @@ class UserTryoutController extends Controller
             ], 422);
         }
 
-        $questions = Question::with(['options'])
+        $questions = \App\Models\TryoutQuestion::with(['questionBank.options'])
             ->where('tryout_subtest_id', $tryoutSubtest->id)
             ->where('is_active', true)
             ->orderBy('order_no')
             ->orderBy('id')
             ->get()
-            ->map(function ($question) use ($session) {
+            ->map(function ($item) use ($session) {
+                $question = $item->questionBank;
+
                 $userAnswer = UserAnswer::where('tryout_session_id', $session->id)
-                    ->where('question_id', $question->id)
-                    ->first();
+                ->where('tryout_question_id', $item->id)
+                ->first();
 
                 return [
-                    'id' => $question->id,
+                    'id' => $item->id,
+                    'question_bank_id' => $question->id,
                     'question_text' => $question->question_text,
-                    'order_no' => $question->order_no,
+                    'order_no' => $item->order_no,
                     'options' => $question->options->map(function ($option) {
                         return [
                             'id' => $option->id,
@@ -142,63 +145,64 @@ class UserTryoutController extends Controller
         ]);
     }
 
-    public function submitAnswer(Request $request, Tryout $tryout, TryoutSubtest $tryoutSubtest, Question $question): JsonResponse
+    public function submitAnswer(Request $request, Tryout $tryout, TryoutSubtest $tryoutSubtest, TryoutQuestion $tryoutQuestion): JsonResponse
     {
         $user = $request->user();
-
+    
         if (
             $tryoutSubtest->tryout_id !== $tryout->id ||
-            $question->tryout_subtest_id !== $tryoutSubtest->id
+            $tryoutQuestion->tryout_subtest_id !== $tryoutSubtest->id
         ) {
             return response()->json([
                 'message' => 'Data soal tidak cocok',
             ], 404);
         }
-
+    
         $validated = $request->validate([
             'answer' => ['nullable', 'string', 'in:A,B,C,D,E'],
         ]);
-
+    
         $hasAccess = UserTryoutAccess::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
             ->exists();
-
+    
         if (! $hasAccess) {
             return response()->json([
                 'message' => 'Kamu tidak punya akses ke tryout ini',
             ], 403);
         }
-
+    
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
             ->first();
-
+    
         if (! $session) {
             return response()->json([
                 'message' => 'Tryout belum dimulai',
             ], 422);
         }
-
+    
         if ($session->status === 'finished') {
             return response()->json([
                 'message' => 'Tryout sudah selesai',
             ], 422);
         }
-
+    
         $answer = $validated['answer'] ?? null;
-
+        $correctAnswer = $tryoutQuestion->questionBank->correct_answer;
+    
         $userAnswer = UserAnswer::updateOrCreate(
             [
                 'tryout_session_id' => $session->id,
-                'question_id' => $question->id,
+                'tryout_question_id' => $tryoutQuestion->id,
             ],
             [
                 'answer' => $answer,
-                'is_correct' => $answer ? $answer === $question->correct_answer : null,
+                'is_correct' => $answer ? $answer === $correctAnswer : null,
                 'answered_at' => now(),
             ]
         );
-
+    
         return response()->json([
             'message' => 'Jawaban berhasil disimpan',
             'data' => $userAnswer,
@@ -240,27 +244,27 @@ class UserTryoutController extends Controller
     public function result(Request $request, Tryout $tryout): JsonResponse
     {
         $user = $request->user();
-
-        $session = TryoutSession::with(['answers.question'])
+    
+        $session = TryoutSession::with(['answers'])
             ->where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
             ->first();
-
+    
         if (! $session) {
             return response()->json([
                 'message' => 'Session tryout tidak ditemukan',
             ], 404);
         }
-
-        $totalQuestions = Question::whereHas('tryoutSubtest', function ($query) use ($tryout) {
+    
+        $totalQuestions = TryoutQuestion::whereHas('tryoutSubtest', function ($query) use ($tryout) {
             $query->where('tryout_id', $tryout->id);
         })->where('is_active', true)->count();
-
+    
         $answered = $session->answers()->whereNotNull('answer')->count();
         $correct = $session->answers()->where('is_correct', true)->count();
         $wrong = $session->answers()->where('is_correct', false)->count();
         $unanswered = max($totalQuestions - $answered, 0);
-
+    
         return response()->json([
             'data' => [
                 'tryout_id' => $tryout->id,
