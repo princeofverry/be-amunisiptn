@@ -57,6 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tryouts/{tryout}/subtests/{tryoutSubtest}/bank-questions/{tryoutQuestion}/answer', [UserTryoutController::class, 'submitAnswer']);
     Route::post('/tryouts/{tryout}/finish', [UserTryoutController::class, 'finish']);
     Route::get('/tryouts/{tryout}/result', [UserTryoutController::class, 'result']);
+
+    Route::post('/tryouts/{tryout}/subtests/{tryoutSubtest}/start', [UserTryoutController::class, 'startSubtest']);
 });
 
 /*
