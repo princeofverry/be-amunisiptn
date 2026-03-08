@@ -32,4 +32,8 @@ class TryoutSubtest extends Model
     {
         return $this->hasMany(TryoutQuestion::class)->orderBy('order_no');
     }
+    public function subtestSessions()
+    {
+        return $this->hasMany(TryoutSubtestSession::class);
+    }
 }

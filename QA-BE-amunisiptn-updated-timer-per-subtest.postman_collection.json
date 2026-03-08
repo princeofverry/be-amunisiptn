@@ -1,0 +1,3331 @@
+{
+  "info": {
+    "_postman_id": "d50d5d08-5e1e-46ce-a261-dfc55671efe8",
+    "name": "QA-BE-amunisiptn - Tryout Timer Per Subtest",
+    "description": "Collection Postman yang disesuaikan dengan flow terbaru: start tryout, start subtest, ambil exam dengan timer, submit jawaban per subtest, dan setup 7 subtest SNBT.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Cara Pakai",
+      "item": [
+        {
+          "name": "README - Jalankan Berurutan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/health-check",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health-check"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Urutan: 1) Admin Login, 2) Register/User Login, 3) Create Tryout, 4) Create Access Code, 5) untuk tiap subtest jalankan Create Subtest -> Attach Subtest -> Create Question Bank -> Attach Question, 6) Redeem Access Code (user), 7) Start Tryout, 8) untuk tiap subtest jalankan Start Subtest -> Show Subtest Questions -> Submit Answer, 9) Finish Tryout -> Get Result. Request ini hanya catatan, boleh di-skip."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "description": "Login admin dan simpan token ke variable admin_token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"admin_token\", json.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"User Timer Test\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"password_confirmation\": \"{{user_password}}\"\n}"
+            },
+            "description": "Register user test. Kalau user sudah ada, lanjut pakai request User Login."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 atau 422\", function () { pm.expect([201,422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) { const json = pm.response.json(); if (json.token) pm.collectionVariables.set(\"user_token\", json.token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
+            },
+            "description": "Login user dan simpan token ke variable user_token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"user_token\", json.token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Admin Setup Tryout 7 Subtest",
+      "item": [
+        {
+          "name": "Create Tryout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tryout SNBT 2026 - Timer Per Subtest\",\n  \"description\": \"Simulasi tryout SNBT dengan countdown per subtest\",\n  \"is_published\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_id\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Access Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/access-codes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "access-codes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{redeem_code}}\",\n  \"max_usage\": 100,\n  \"is_active\": true,\n  \"expired_at\": null\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"access_code_id\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Penalaran Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Penalaran Umum\",\n  \"category\": \"TPS\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_penalaran_umum\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Penalaran Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_penalaran_umum}}\",\n  \"duration_minutes\": 30,\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 30 menit, urutan 1."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_penalaran_umum\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Penalaran Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_penalaran_umum}}\",\n  \"question_text\": \"Jika semua peserta tryout adalah pelajar dan sebagian pelajar gemar matematika, simpulan yang pasti benar adalah?\",\n  \"discussion\": \"Karena semua peserta tryout termasuk pelajar.\",\n  \"correct_answer\": \"C\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"Semua peserta tryout gemar matematika\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"Sebagian peserta tryout gemar matematika\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"Peserta tryout termasuk pelajar\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"Tidak ada peserta tryout yang gemar matematika\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"Semua pelajar adalah peserta tryout\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_penalaran_umum\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Penalaran Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_penalaran_umum}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_penalaran_umum}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_penalaran_umum}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_penalaran_umum\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pengetahuan dan Pemahaman Umum\",\n  \"category\": \"TPS\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_ppu\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_ppu}}\",\n  \"duration_minutes\": 15,\n  \"order_no\": 2,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 15 menit, urutan 2."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_ppu\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_ppu}}\",\n  \"question_text\": \"Tujuan utama teks eksplanasi adalah ...\",\n  \"discussion\": \"Teks eksplanasi menjelaskan proses atau sebab-akibat suatu fenomena.\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"Menghibur pembaca dengan cerita fiksi\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"Menjelaskan proses terjadinya suatu fenomena\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"Membujuk pembaca membeli produk\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"Melaporkan hasil wawancara\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"Menyajikan dialog antartokoh\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_ppu\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_ppu}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_ppu}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_ppu}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_ppu\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pemahaman Bacaan dan Menulis\",\n  \"category\": \"TPS\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_pbm\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_pbm}}\",\n  \"duration_minutes\": 25,\n  \"order_no\": 3,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 25 menit, urutan 3."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_pbm\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_pbm}}\",\n  \"question_text\": \"Kalimat yang paling efektif adalah ...\",\n  \"discussion\": \"Kalimat B hemat kata dan efektif.\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"Para siswa-siswa sedang belajar di dalam kelas\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"Siswa sedang belajar di dalam kelas\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"Para siswa sedang belajar di dalam kelas-kelas\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"Siswa-siswa sedang belajar di dalam kelas-kelas\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"Bahwa siswa sedang belajar di dalam kelas\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_pbm\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pbm}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pbm}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_pbm}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_pbm\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pengetahuan Kuantitatif\",\n  \"category\": \"TPS\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_pk\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_pk}}\",\n  \"duration_minutes\": 20,\n  \"order_no\": 4,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 20 menit, urutan 4."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_pk\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_pk}}\",\n  \"question_text\": \"Nilai dari 12 + 15 ÷ 3 adalah ...\",\n  \"discussion\": \"Kerjakan pembagian lebih dulu: 15 ÷ 3 = 5, lalu 12 + 5 = 17.\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"9\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"17\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"20\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"27\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"81\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_pk\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pk}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pk}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_pk}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_pk\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Literasi Bahasa Indonesia\",\n  \"category\": \"Literasi\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_lbi\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_lbi}}\",\n  \"duration_minutes\": 43,\n  \"order_no\": 5,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 43 menit, urutan 5."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_lbi\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_lbi}}\",\n  \"question_text\": \"Makna kata 'absurd' yang paling tepat adalah ...\",\n  \"discussion\": \"Absurd berarti tidak masuk akal.\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"Masuk akal\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"Tidak masuk akal\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"Pasti benar\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"Sangat ilmiah\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"Mudah dipahami\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_lbi\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbi}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbi}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_lbi}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_lbi\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Literasi Bahasa Inggris",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Literasi Bahasa Inggris\",\n  \"category\": \"Literasi\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_lbe\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Literasi Bahasa Inggris",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_lbe}}\",\n  \"duration_minutes\": 20,\n  \"order_no\": 6,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 20 menit, urutan 6."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_lbe\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Literasi Bahasa Inggris",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_lbe}}\",\n  \"question_text\": \"Choose the correct synonym of 'rapid'.\",\n  \"discussion\": \"Rapid means quick.\",\n  \"correct_answer\": \"B\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"Slow\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"Quick\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"Late\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"Calm\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"Weak\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_lbe\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Literasi Bahasa Inggris",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbe}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbe}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_lbe}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_lbe\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Subtest - Penalaran Matematika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Penalaran Matematika\",\n  \"category\": \"Literasi\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subtest_id_pm\", json.subtest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Subtest to Tryout - Penalaran Matematika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_pm}}\",\n  \"duration_minutes\": 43,\n  \"order_no\": 7,\n  \"is_active\": true\n}"
+            },
+            "description": "Durasi 43 menit, urutan 7."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_subtest_id_pm\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Question Bank - Penalaran Matematika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/question-bank",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "question-bank"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtest_id\": \"{{subtest_id_pm}}\",\n  \"question_text\": \"Jika x + 3 = 11, maka nilai 2x adalah ...\",\n  \"discussion\": \"x = 8, sehingga 2x = 16.\",\n  \"correct_answer\": \"C\",\n  \"difficulty\": \"easy\",\n  \"is_active\": true,\n  \"options\": [\n    {\n      \"option_key\": \"A\",\n      \"option_text\": \"8\"\n    },\n    {\n      \"option_key\": \"B\",\n      \"option_text\": \"11\"\n    },\n    {\n      \"option_key\": \"C\",\n      \"option_text\": \"16\"\n    },\n    {\n      \"option_key\": \"D\",\n      \"option_text\": \"19\"\n    },\n    {\n      \"option_key\": \"E\",\n      \"option_text\": \"22\"\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"question_bank_id_pm\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Question to Tryout - Penalaran Matematika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pm}}/bank-questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pm}}",
+                "bank-questions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_bank_id\": \"{{question_bank_id_pm}}\",\n  \"order_no\": 1,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"tryout_question_id_pm\", json.data.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. User Flow - Timer Per Subtest",
+      "item": [
+        {
+          "name": "Redeem Access Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/access-codes/redeem",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "access-codes",
+                "redeem"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{redeem_code}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My Tryouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/my-tryouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "my-tryouts"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Tryout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Penalaran Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_penalaran_umum}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_penalaran_umum}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Penalaran Umum. Durasi target 30 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_penalaran_umum\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Penalaran Umum",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_penalaran_umum}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_penalaran_umum}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Penalaran Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_penalaran_umum}}/bank-questions/{{tryout_question_id_penalaran_umum}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_penalaran_umum}}",
+                "bank-questions",
+                "{{tryout_question_id_penalaran_umum}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_ppu}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_ppu}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Pengetahuan dan Pemahaman Umum. Durasi target 15 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_ppu\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_ppu}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_ppu}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Pengetahuan dan Pemahaman Umum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_ppu}}/bank-questions/{{tryout_question_id_ppu}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_ppu}}",
+                "bank-questions",
+                "{{tryout_question_id_ppu}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pbm}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pbm}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Pemahaman Bacaan dan Menulis. Durasi target 25 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_pbm\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pbm}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pbm}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Pemahaman Bacaan dan Menulis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pbm}}/bank-questions/{{tryout_question_id_pbm}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pbm}}",
+                "bank-questions",
+                "{{tryout_question_id_pbm}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pk}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pk}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Pengetahuan Kuantitatif. Durasi target 20 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_pk\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pk}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pk}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Pengetahuan Kuantitatif",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pk}}/bank-questions/{{tryout_question_id_pk}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pk}}",
+                "bank-questions",
+                "{{tryout_question_id_pk}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbi}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbi}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Literasi Bahasa Indonesia. Durasi target 43 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_lbi\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbi}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbi}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Literasi Bahasa Indonesia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbi}}/bank-questions/{{tryout_question_id_lbi}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbi}}",
+                "bank-questions",
+                "{{tryout_question_id_lbi}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Literasi Bahasa Inggris",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbe}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbe}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Literasi Bahasa Inggris. Durasi target 20 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_lbe\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Literasi Bahasa Inggris",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbe}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbe}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Literasi Bahasa Inggris",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_lbe}}/bank-questions/{{tryout_question_id_lbe}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_lbe}}",
+                "bank-questions",
+                "{{tryout_question_id_lbe}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Subtest - Penalaran Matematika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pm}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pm}}",
+                "start"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Mulai subtest Penalaran Matematika. Durasi target 43 menit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"current_tryout_subtest_id\", pm.collectionVariables.get(\"tryout_subtest_id_pm\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Subtest Questions - Penalaran Matematika",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pm}}/exam",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pm}}",
+                "exam"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Ada timer\", function () { pm.expect(json.data.timer).to.exist; });",
+                  "pm.test(\"Ada remaining_seconds\", function () { pm.expect(json.data.timer.remaining_seconds).to.not.eql(undefined); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Answer - Penalaran Matematika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/subtests/{{tryout_subtest_id_pm}}/bank-questions/{{tryout_question_id_pm}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "subtests",
+                "{{tryout_subtest_id_pm}}",
+                "bank-questions",
+                "{{tryout_question_id_pm}}",
+                "answer"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": \"B\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 atau 422\", function () { pm.expect([200,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Finish Tryout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "finish"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Result",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tryouts/{{tryout_id}}/result",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tryouts",
+                "{{tryout_id}}",
+                "result"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "admin_password",
+      "value": "password"
+    },
+    {
+      "key": "user_email",
+      "value": "user.timer@test.com"
+    },
+    {
+      "key": "user_password",
+      "value": "password"
+    },
+    {
+      "key": "admin_token",
+      "value": ""
+    },
+    {
+      "key": "user_token",
+      "value": ""
+    },
+    {
+      "key": "tryout_id",
+      "value": ""
+    },
+    {
+      "key": "access_code_id",
+      "value": ""
+    },
+    {
+      "key": "redeem_code",
+      "value": "TRYOUT-SNBT-2026"
+    },
+    {
+      "key": "current_tryout_subtest_id",
+      "value": ""
+    },
+    {
+      "key": "current_tryout_question_id",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_penalaran_umum",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_penalaran_umum",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_penalaran_umum",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_penalaran_umum",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_ppu",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_ppu",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_ppu",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_ppu",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_pbm",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_pbm",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_pbm",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_pbm",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_pk",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_pk",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_pk",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_pk",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_lbi",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_lbi",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_lbi",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_lbi",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_lbe",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_lbe",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_lbe",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_lbe",
+      "value": ""
+    },
+    {
+      "key": "subtest_id_pm",
+      "value": ""
+    },
+    {
+      "key": "tryout_subtest_id_pm",
+      "value": ""
+    },
+    {
+      "key": "question_bank_id_pm",
+      "value": ""
+    },
+    {
+      "key": "tryout_question_id_pm",
+      "value": ""
+    }
+  ]
+}

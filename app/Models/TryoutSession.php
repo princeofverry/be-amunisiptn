@@ -33,4 +33,9 @@ class TryoutSession extends Model
     {
         return $this->hasMany(UserAnswer::class);
     }
+
+    public function subtestSessions()
+    {
+        return $this->hasMany(TryoutSubtestSession::class);
+    }
 }
