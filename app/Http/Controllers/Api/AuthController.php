@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
@@ -26,7 +27,8 @@ class AuthController extends Controller
             'role' => 'user',
         ]);
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $tokenRaw = $user->createToken('auth-token')->plainTextToken;
+        $token = explode('|', $tokenRaw, 2)[1];
 
         return response()->json([
             'message' => 'User registered successfully',
@@ -44,13 +46,23 @@ class AuthController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
         
+        if ($user && !$user->password) {
+            throw ValidationException::withMessages([
+                'email' => ['Akun ini terdaftar menggunakan Google. Silakan login menggunakan Google OAuth.'],
+            ]);
+        }
+        
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Email atau password salah.'],
             ]);
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        // --- SINGLE DEVICE LOGIN ---
+        $user->tokens()->delete();
+
+        $tokenRaw = $user->createToken('auth-token')->plainTextToken;
+        $token = explode('|', $tokenRaw, 2)[1];
 
         return response()->json([
             'message' => 'Login berhasil',
@@ -73,5 +85,53 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Logout berhasil',
         ]);
+    }
+
+    // --- GOOGLE OAUTH METHODS ---
+
+    public function redirectToGoogle(): JsonResponse
+    {
+        return response()->json([
+            'url' => Socialite::driver('google')->stateless()->redirect()->getTargetUrl(),
+        ]);
+    }
+
+    public function handleGoogleCallback()
+    {
+        try {
+            $googleUser = Socialite::driver('google')->stateless()->user();
+            
+            $user = User::where('email', $googleUser->getEmail())->first();
+
+            if (!$user) {
+                $user = User::create([
+                    'name' => $googleUser->getName(),
+                    'email' => $googleUser->getEmail(),
+                    'password' => null, 
+                    'google_id' => $googleUser->getId(),
+                    'role' => 'user',
+                ]);
+            } else {
+                if (!$user->google_id) {
+                    $user->update([
+                        'google_id' => $googleUser->getId()
+                    ]);
+                }
+            }
+
+            // --- SINGLE DEVICE LOGIN ---
+            $user->tokens()->delete();
+
+            $tokenRaw = $user->createToken('auth-token')->plainTextToken;
+            $token = explode('|', $tokenRaw, 2)[1];
+
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            
+            return redirect()->away($frontendUrl . '/auth/callback?token=' . $token);
+
+        } catch (\Exception $e) {
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            return redirect()->away($frontendUrl . '/login?error=google_auth_failed');
+        }
     }
 }
