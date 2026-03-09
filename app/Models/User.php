@@ -8,7 +8,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -24,6 +23,16 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'google_id',
+        'phone_number',
+        'birth_date',
+        'gender',
+        'school_origin',
+        'grade_level',
+        'target_university_1',
+        'target_major_1',
+        'target_university_2',
+        'target_major_2',
     ];
 
     /**
@@ -59,7 +68,7 @@ class User extends Authenticatable
     }
 
     public function tryoutSessions()
-{
-    return $this->hasMany(TryoutSession::class);
-}
+    {
+        return $this->hasMany(TryoutSession::class);
+    }
 }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccessCodeController;
 use App\Http\Controllers\Api\AdminAccessCodeController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\QuestionBankController;
 use App\Http\Controllers\Api\SubtestController;
 use App\Http\Controllers\Api\TryoutController;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 | Public:
 | - register
 | - login
+| - Google OAuth
 |
 | Protected:
 | - me
@@ -26,6 +28,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+
+    Route::get('/google/redirect', [AuthController::class, 'redirectToGoogle']);
+    Route::get('/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
@@ -38,6 +43,7 @@ Route::prefix('auth')->group(function () {
 | USER / PESERTA
 |--------------------------------------------------------------------------
 | Dipakai user biasa yang sudah login:
+| - lengkapi profil (onboarding)
 | - redeem code
 | - lihat subtest master
 | - lihat tryout yang dia punya akses
@@ -48,6 +54,9 @@ Route::prefix('auth')->group(function () {
 | - lihat hasil
 */
 Route::middleware('auth:sanctum')->group(function () {
+    
+    Route::put('/profile/update', [ProfileController::class, 'update']);
+
     Route::post('/access-codes/redeem', [AccessCodeController::class, 'redeem']);
     Route::get('/subtests', [SubtestController::class, 'index']);
 
