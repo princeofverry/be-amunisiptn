@@ -56,4 +56,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(TryoutSession::class);
     }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+    
+    public function packageEnrollments()
+    {
+        return $this->hasMany(UserPackageEnrollment::class);
+    }
 }
