@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('tryouts', function (Blueprint $table) {
@@ -19,15 +16,12 @@ return new class extends Migration
             $table->integer('duration_minutes');
             $table->boolean('is_published')->default(false);
             
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUlid('created_by')->nullable()->constrained('users')->nullOnDelete();
             
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('tryouts');

@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('question_bank_options', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('question_bank_id')->constrained('question_bank')->cascadeOnDelete();
+            $table->ulid('id')->primary();
+            $table->foreignUlid('question_bank_id')->constrained('question_bank')->cascadeOnDelete(); // Ubah ke foreignUlid
             $table->string('option_key', 5);
             $table->text('option_text');
             $table->timestamps();

@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_answers', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tryout_session_id')->constrained('tryout_sessions')->cascadeOnDelete();
-            $table->foreignId('tryout_question_id')->constrained('tryout_questions')->cascadeOnDelete();
+            $table->ulid('id')->primary();
+            $table->foreignUlid('tryout_session_id')->constrained('tryout_sessions')->cascadeOnDelete(); // Ubah ke foreignUlid
+            $table->foreignUlid('tryout_question_id')->constrained('tryout_questions')->cascadeOnDelete(); // Ubah ke foreignUlid
             $table->string('answer', 5)->nullable();
             $table->boolean('is_correct')->nullable();
             $table->timestamp('answered_at')->nullable();

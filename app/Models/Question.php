@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class Question extends Model
 {
+    use HasUlids;
+
     protected $fillable = [
         'tryout_subtest_id',
         'question_text',
@@ -33,4 +36,4 @@ class Question extends Model
     {
         return $this->hasMany(UserAnswer::class);
     }
-}   
+}

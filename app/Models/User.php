@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, HasUlids;
+
     protected $fillable = [
         'name',
         'email',

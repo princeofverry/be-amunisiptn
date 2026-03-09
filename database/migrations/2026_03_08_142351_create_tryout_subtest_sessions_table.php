@@ -9,13 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tryout_subtest_sessions', function (Blueprint $table) {
-            $table->id();
+            $table->ulid('id')->primary();
 
-            $table->foreignId('tryout_session_id')
+            $table->foreignUlid('tryout_session_id')
                 ->constrained('tryout_sessions')
                 ->cascadeOnDelete();
 
-            $table->foreignId('tryout_subtest_id')
+            $table->foreignUlid('tryout_subtest_id')
                 ->constrained('tryout_subtests')
                 ->cascadeOnDelete();
 

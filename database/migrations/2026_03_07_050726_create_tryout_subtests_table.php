@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tryout_subtests', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tryout_id')->constrained('tryouts')->cascadeOnDelete();
-            $table->foreignId('subtest_id')->constrained('subtests')->cascadeOnDelete();
+            $table->ulid('id')->primary();
+            $table->foreignUlid('tryout_id')->constrained('tryouts')->cascadeOnDelete(); // Ubah ke foreignUlid
+            $table->foreignUlid('subtest_id')->constrained('subtests')->cascadeOnDelete(); // Ubah ke foreignUlid
             $table->unsignedInteger('duration_minutes')->default(0);
             $table->unsignedInteger('order_no')->default(1);
             $table->boolean('is_active')->default(true);
