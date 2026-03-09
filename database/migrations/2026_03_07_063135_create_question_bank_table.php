@@ -9,14 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('question_bank', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('subtest_id')->constrained('subtests')->cascadeOnDelete();
+            $table->ulid('id')->primary();
+            $table->foreignUlid('subtest_id')->constrained('subtests')->cascadeOnDelete(); // Ubah ke foreignUlid
             $table->text('question_text');
             $table->text('discussion')->nullable();
             $table->string('correct_answer', 5);
             $table->string('difficulty')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUlid('created_by')->nullable()->constrained('users')->nullOnDelete(); // Ubah ke foreignUlid
             $table->timestamps();
         });
     }

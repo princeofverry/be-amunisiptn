@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\TryoutController;
 use App\Http\Controllers\Api\TryoutQuestionController;
 use App\Http\Controllers\Api\TryoutSubtestController;
 use App\Http\Controllers\Api\UserTryoutController;
+use App\Http\Controllers\Api\IRTScoreController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -68,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tryouts/{tryout}/result', [UserTryoutController::class, 'result']);
 
     Route::post('/tryouts/{tryout}/subtests/{tryoutSubtest}/start', [UserTryoutController::class, 'startSubtest']);
+    Route::get('/tryouts/{tryout}/sessions/{tryoutSession}/irt-score', [IRTScoreController::class, 'calculateIRTScore']);
 });
 
 /*

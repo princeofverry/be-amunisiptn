@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class QuestionBankOption extends Model
 {
+    use HasUlids;
+
     protected $fillable = [
         'question_bank_id',
         'option_key',

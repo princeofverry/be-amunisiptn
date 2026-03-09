@@ -12,9 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('subtests', function (Blueprint $table) {
-            $table->id();
+            $table->ulid('id')->primary();
             $table->string('name')->unique();
-            $table->enum('category', ['TPS', 'Literasi']); // 2 tipe subtest
+            $table->enum('category', ['TPS', 'Literasi']);
             $table->timestamps();
         });
     }

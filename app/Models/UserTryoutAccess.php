@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class UserTryoutAccess extends Model
 {
-    //
+    use HasUlids;
+
     protected $table = 'user_tryout_access';
 
     protected $fillable = [
