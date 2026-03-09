@@ -504,4 +504,52 @@ class UserTryoutController extends Controller
             ],
         ]);
     }
+
+    public function finishSubtest(Request $request, Tryout $tryout, TryoutSubtest $tryoutSubtest): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($tryoutSubtest->tryout_id !== $tryout->id) {
+            return response()->json([
+                'message' => 'Data tryout subtest tidak cocok',
+            ], 404);
+        }
+
+        $session = TryoutSession::where('user_id', $user->id)
+            ->where('tryout_id', $tryout->id)
+            ->first();
+
+        if (! $session) {
+            return response()->json([
+                'message' => 'Tryout belum dimulai',
+            ], 422);
+        }
+
+        $subtestSession = TryoutSubtestSession::where('tryout_session_id', $session->id)
+            ->where('tryout_subtest_id', $tryoutSubtest->id)
+            ->first();
+
+        if (! $subtestSession) {
+            return response()->json([
+                'message' => 'Subtest belum dimulai',
+            ], 422);
+        }
+
+        if (in_array($subtestSession->status, ['finished', 'expired'])) {
+            return response()->json([
+                'message' => 'Subtest ini sudah selesai sebelumnya',
+                'data' => $subtestSession,
+            ]);
+        }
+
+        $subtestSession->update([
+            'status' => 'finished',
+            'finished_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Subtest berhasil diselesaikan (Auto-submit)',
+            'data' => $subtestSession->fresh(),
+        ]);
+    }
 }
