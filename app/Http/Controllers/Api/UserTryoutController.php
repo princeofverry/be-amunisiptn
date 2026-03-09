@@ -425,6 +425,7 @@ class UserTryoutController extends Controller
             ], 404);
         }
 
+        // --- 1. STATISTIK DASAR (Benar, Salah, Kosong) ---
         $totalQuestions = TryoutQuestion::whereHas('tryoutSubtest', function ($query) use ($tryout) {
             $query->where('tryout_id', $tryout->id);
         })->where('is_active', true)->count();
@@ -433,6 +434,53 @@ class UserTryoutController extends Controller
         $correct = $session->answers()->where('is_correct', true)->count();
         $wrong = $session->answers()->where('is_correct', false)->count();
         $unanswered = max($totalQuestions - $answered, 0);
+
+        // --- 2. KALKULASI SKOR IRT ---
+        // Ambil total peserta yang statusnya sudah 'finished'
+        $totalParticipants = TryoutSession::where('tryout_id', $tryout->id)
+            ->where('status', 'finished')
+            ->count();
+
+        $rawIrtScore = 0;
+        $finalScore1000 = 0;
+
+        // IRT hanya bisa dihitung jika ada peserta yang sudah selesai
+        if ($totalParticipants > 0) {
+            $allTryoutQuestions = TryoutQuestion::whereHas('tryoutSubtest', function ($query) use ($tryout) {
+                $query->where('tryout_id', $tryout->id);
+            })->where('is_active', true)->get();
+
+            $totalWeightAll = 0;
+            $questionStats = [];
+
+            // A. Hitung bobot kesulitan tiap soal (Difficulty Index)
+            foreach ($allTryoutQuestions as $q) {
+                $correctCount = UserAnswer::where('tryout_question_id', $q->id)
+                    ->where('is_correct', true)
+                    ->count();
+
+                $p = $correctCount / $totalParticipants;
+                
+                // Mencegah error pembagian 0 (Logit scale)
+                $safeP = $p <= 0 ? 0.0001 : ($p >= 1 ? 0.9999 : $p);
+                
+                // Rumus IRT Logit: b = ln((1-p)/p) ditambah 2 agar minimal bobot positif (1)
+                $weight = max(1, log((1 - $safeP) / $safeP) + 2); 
+
+                $questionStats[$q->id] = $weight;
+                $totalWeightAll += $weight;
+            }
+
+            // B. Hitung skor untuk user yang sedang request ini
+            foreach ($session->answers as $answer) {
+                if ($answer->is_correct && isset($questionStats[$answer->tryout_question_id])) {
+                    $rawIrtScore += $questionStats[$answer->tryout_question_id];
+                }
+            }
+
+            // C. Skalakan ke 1000 (Standar UTBK)
+            $finalScore1000 = ($totalWeightAll > 0) ? ($rawIrtScore / $totalWeightAll) * 1000 : 0;
+        }
 
         return response()->json([
             'data' => [
@@ -448,6 +496,11 @@ class UserTryoutController extends Controller
                     'wrong' => $wrong,
                     'unanswered' => $unanswered,
                 ],
+                'irt_result' => [
+                    'total_participants_calculated' => $totalParticipants,
+                    'raw_score' => round($rawIrtScore, 2),
+                    'final_score' => round($finalScore1000, 2),
+                ]
             ],
         ]);
     }
