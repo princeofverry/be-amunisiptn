@@ -12,12 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tryouts', function (Blueprint $table) {
-            $table->id();
+            $table->ulid('id')->primary();
+            
             $table->string('title');
             $table->text('description')->nullable();
             $table->integer('duration_minutes');
             $table->boolean('is_published')->default(false);
+            
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            
             $table->timestamps();
         });
     }

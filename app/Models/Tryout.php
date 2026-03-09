@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class Tryout extends Model
 {
+    use HasUlids;
+
     protected $fillable = [
         'title',
         'description',
@@ -33,7 +36,7 @@ class Tryout extends Model
     }
 
     public function sessions()
-{
-    return $this->hasMany(TryoutSession::class);
-}
+    {
+        return $this->hasMany(TryoutSession::class);
+    }
 }
