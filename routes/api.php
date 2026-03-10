@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\TryoutController;
 use App\Http\Controllers\Api\TryoutQuestionController;
 use App\Http\Controllers\Api\TryoutSubtestController;
 use App\Http\Controllers\Api\UserTryoutController;
+use App\Http\Controllers\Api\AdminUserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/midtrans/callback', [PaymentCallbackController::class, 'handle']);
@@ -34,7 +35,6 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/update', [ProfileController::class, 'update']);
-    Route::delete('/profile/delete', [ProfileController::class, 'destroy']);
 
     Route::post('/access-codes/redeem', [AccessCodeController::class, 'redeem']);
     Route::get('/subtests', [SubtestController::class, 'index']);
@@ -59,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'admin'])
     ->prefix('admin')
     ->group(function () {
+
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
+
         Route::post('/subtests', [SubtestController::class, 'store']);
         Route::put('/subtests/{subtest}', [SubtestController::class, 'update']);
         Route::delete('/subtests/{subtest}', [SubtestController::class, 'destroy']);
