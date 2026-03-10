@@ -34,6 +34,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/update', [ProfileController::class, 'update']);
+    Route::delete('/profile/delete', [ProfileController::class, 'destroy']);
 
     Route::post('/access-codes/redeem', [AccessCodeController::class, 'redeem']);
     Route::get('/subtests', [SubtestController::class, 'index']);

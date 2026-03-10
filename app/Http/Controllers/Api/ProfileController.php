@@ -34,4 +34,17 @@ class ProfileController extends Controller
             'user' => $user->fresh(),
         ]);
     }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $user->tokens()->delete();
+
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Akun Anda berhasil dihapus.'
+        ]);
+    }
 }
