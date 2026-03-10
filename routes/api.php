@@ -54,6 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+
+    // review to show the answer
+    Route::get('/tryouts/{tryout}/review', [UserTryoutController::class, 'review']);
 });
 
 Route::middleware(['auth:sanctum', 'admin'])
