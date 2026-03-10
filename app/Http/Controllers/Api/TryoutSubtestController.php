@@ -10,6 +10,19 @@ use Illuminate\Http\Request;
 
 class TryoutSubtestController extends Controller
 {
+    public function index(Tryout $tryout): JsonResponse
+    {
+        $items = TryoutSubtest::with('subtest')
+            ->where('tryout_id', $tryout->id)
+            ->orderBy('order_no')
+            ->get();
+
+        return response()->json([
+            'data' => $items,
+        ]);
+    }
+
+
     public function store(Request $request, Tryout $tryout): JsonResponse
     {
         $validated = $request->validate([
