@@ -13,48 +13,40 @@ class PaymentCallbackController extends Controller
 {
     public function handle(Request $request, EnrollmentService $enrollmentService)
     {
-        // Setup konfigurasi
         Config::$serverKey = config('midtrans.server_key');
         Config::$isProduction = config('midtrans.is_production');
 
         try {
             $notification = new Notification();
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Invalid notification'], 400);
+            return response()->json(['message' => 'Notifikasi tidak valid'], 400);
         }
 
         $transactionStatus = $notification->transaction_status;
-        $orderId = $notification->order_id;
+        $orderCode = $notification->order_id;
         
-        // Cari order berdasarkan order_code
-        $order = Order::where('order_code', $orderId)->first();
+        $order = Order::where('order_code', $orderCode)->first();
 
         if (!$order) {
             return response()->json(['message' => 'Order tidak ditemukan'], 404);
         }
 
-        // Jika transaksi berhasil (settlement atau capture)
         if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
             if ($order->status !== 'paid') {
                 $enrollmentService->approveOrderAndGrantAccess($order, null);
                 
                 $order->update([
-                    'payment_reference' => $notification->payment_type,
                     'midtrans_transaction_id' => $notification->transaction_id,
+                    'payment_reference' => $notification->payment_type,
                 ]);
             }
         } 
-        // Jika kadaluarsa atau dibatalkan
-        else if ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
+        else if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
             if ($order->status !== 'paid') {
                 $order->update(['status' => 'cancelled']);
             }
-        } 
-        // Jika masih pending
-        else if ($transactionStatus == 'pending') {
-            $order->update(['status' => 'pending']);
         }
 
-        return response()->json(['message' => 'Callback diterima sukses']);
+        return response()->json(['message' => 'Callback diproses']);
     }
 }

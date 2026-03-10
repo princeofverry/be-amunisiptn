@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 class EnrollmentService
 {
-    public function approveOrderAndGrantAccess(Order $order, string $adminId): Order
+    // Ubah $adminId menjadi nullable (?string) dengan default null
+    public function approveOrderAndGrantAccess(Order $order, ?string $adminId = null): Order
     {
         return DB::transaction(function () use ($order, $adminId) {
             $order->load('items.package.tryouts');
@@ -18,7 +19,7 @@ class EnrollmentService
                 'status' => 'paid',
                 'paid_at' => now(),
                 'approved_at' => now(),
-                'approved_by' => $adminId,
+                'approved_by' => $adminId, // Ini akan terisi null karena di-acc oleh sistem
             ]);
 
             $userId = $order->user_id;
@@ -26,6 +27,7 @@ class EnrollmentService
             foreach ($order->items as $item) {
                 $package = $item->package;
 
+                // Enroll user ke paket
                 UserPackageEnrollment::firstOrCreate(
                     [
                         'user_id' => $userId,
@@ -37,6 +39,7 @@ class EnrollmentService
                     ]
                 );
 
+                // Berikan akses tryout di dalam paket
                 foreach ($package->tryouts as $tryout) {
                     UserTryoutAccess::firstOrCreate(
                         [
