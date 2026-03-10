@@ -13,6 +13,7 @@ use App\Models\UserTryoutAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Cache;
 
 class UserTryoutController extends Controller
 {
@@ -27,6 +28,19 @@ class UserTryoutController extends Controller
             ->whereIn('id', $tryoutIds)
             ->where('is_published', true)
             ->get();
+
+        // Acak urutan Subtest untuk setiap Tryout secara konsisten per User
+        $tryouts->each(function ($tryout) use ($user) {
+            $shuffledSubtests = $tryout->tryoutSubtests->sortBy(function ($subtest) use ($user) {
+                return md5($user->id . $subtest->id);
+            })->values();
+            
+            $shuffledSubtests->each(function($subtest, $index) {
+                $subtest->order_no = $index + 1;
+            });
+
+            $tryout->setRelation('tryoutSubtests', $shuffledSubtests);
+        });
 
         return response()->json([
             'data' => $tryouts,
@@ -225,32 +239,40 @@ class UserTryoutController extends Controller
         }
 
         $cacheKey = "tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions";
-        $questionsData = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function() use ($tryoutSubtest) {
+        $questionsData = Cache::remember($cacheKey, 3600, function() use ($tryoutSubtest) {
             return TryoutQuestion::with(['questionBank.options'])
                 ->where('tryout_subtest_id', $tryoutSubtest->id)
                 ->where('is_active', true)
-                ->orderBy('order_no')
-                ->orderBy('id')
                 ->get();
         });
+
+        // Acak Soal Berdasarkan Session ID 
+        $questionsData = $questionsData->sortBy(function ($item) use ($session) {
+            return md5($session->id . $item->id);
+        })->values();
 
         $redisKeyAnswers = "tryout_answers:{$session->id}";
         $cachedAnswers = Redis::hGetAll($redisKeyAnswers);
 
-        $questions = $questionsData->map(function ($item) use ($cachedAnswers) {
+        $questions = $questionsData->map(function ($item, $index) use ($cachedAnswers, $session) {
             $question = $item->questionBank;
-            
             $myAnswer = $cachedAnswers[$item->id] ?? null;
+
+            // FITUR BARU: Acak Opsi Jawaban (A, B, C, D, E) secara deterministik per User
+            $shuffledOptions = $question->options->sortBy(function ($option) use ($session, $item) {
+                // Kombinasi Session ID, Question ID, dan Option ID agar acakannya konsisten
+                return md5($session->id . $item->id . $option->id);
+            })->values();
 
             return [
                 'id' => $item->id,
                 'question_bank_id' => $question->id,
                 'question_text' => $question->question_text,
-                'order_no' => $item->order_no,
-                'options' => $question->options->map(function ($option) {
+                'order_no' => $index + 1,
+                'options' => $shuffledOptions->map(function ($option) {
                     return [
                         'id' => $option->id,
-                        'option_key' => $option->option_key,
+                        'option_key' => $option->option_key, // Key (A/B/C/D/E) dipertahankan, hanya urutan arraynya yang teracak
                         'option_text' => $option->option_text,
                     ];
                 })->values(),
@@ -465,7 +487,6 @@ class UserTryoutController extends Controller
             ], 404);
         }
 
-        // --- 1. STATISTIK DASAR (Benar, Salah, Kosong) ---
         $totalQuestions = TryoutQuestion::whereHas('tryoutSubtest', function ($query) use ($tryout) {
             $query->where('tryout_id', $tryout->id);
         })->where('is_active', true)->count();
@@ -475,7 +496,6 @@ class UserTryoutController extends Controller
         $wrong = $session->answers()->where('is_correct', false)->count();
         $unanswered = max($totalQuestions - $answered, 0);
 
-        // --- 2. KALKULASI SKOR IRT ---
         $totalParticipants = TryoutSession::where('tryout_id', $tryout->id)
             ->where('status', 'finished')
             ->count();
