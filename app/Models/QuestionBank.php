@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Model;
 
 class QuestionBank extends Model
 {
@@ -14,7 +14,9 @@ class QuestionBank extends Model
     protected $fillable = [
         'subtest_id',
         'question_text',
+        'question_image',
         'discussion',
+        'discussion_image',
         'correct_answer',
         'difficulty',
         'is_active',
@@ -24,6 +26,25 @@ class QuestionBank extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    protected $appends = [
+        'question_image_url',
+        'discussion_image_url',
+    ];
+
+    public function getQuestionImageUrlAttribute(): ?string
+    {
+        return $this->question_image
+            ? asset('storage/' . $this->question_image)
+            : null;
+    }
+
+    public function getDiscussionImageUrlAttribute(): ?string
+    {
+        return $this->discussion_image
+            ? asset('storage/' . $this->discussion_image)
+            : null;
+    }
 
     public function subtest()
     {

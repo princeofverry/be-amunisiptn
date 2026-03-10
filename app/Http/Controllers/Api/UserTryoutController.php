@@ -253,27 +253,28 @@ class UserTryoutController extends Controller
 
         $questions = $questionsData->map(function ($item, $index) use ($userAnswers, $session) {
             $question = $item->questionBank;
-            
             $myAnswer = $userAnswers[$item->id] ?? null;
-
+            
             $shuffledOptions = $question->options->sortBy(function ($option) use ($session, $item) {
                 return md5($session->id . $item->id . $option->id);
             })->values();
-
+            
             return [
                 'id' => $item->id,
                 'question_bank_id' => $question->id,
                 'question_text' => $question->question_text,
+                'question_image' => $question->question_image,
+                'question_image_url' => $question->question_image_url,
                 'order_no' => $index + 1,
                 'options' => $shuffledOptions->map(function ($option) {
                     return [
                         'id' => $option->id,
-                        'option_key' => $option->option_key,
-                        'option_text' => $option->option_text,
-                    ];
-                })->values(),
-                'my_answer' => $myAnswer,
-            ];
+                            'option_key' => $option->option_key,
+                            'option_text' => $option->option_text,
+                        ];
+                    })->values(),
+                    'my_answer' => $myAnswer,
+                ];
         })->values();
 
         return response()->json([
@@ -523,6 +524,82 @@ class UserTryoutController extends Controller
                     'raw_score' => round($rawIrtScore, 2),
                     'final_score' => round($finalScore1000, 2),
                 ]
+            ],
+        ]);
+    }
+
+    public function review(Request $request, Tryout $tryout): JsonResponse
+    {
+        $user = $request->user();
+
+        $session = TryoutSession::where('user_id', $user->id)
+            ->where('tryout_id', $tryout->id)
+            ->first();
+
+        if (! $session) {
+            return response()->json([
+                'message' => 'Session tryout tidak ditemukan',
+            ], 404);
+        }
+
+        if ($session->status !== 'finished') {
+            return response()->json([
+                'message' => 'Review hanya bisa diakses setelah tryout selesai',
+            ], 422);
+        }
+
+        $questions = TryoutQuestion::with([
+                'questionBank.options',
+                'tryoutSubtest.subtest',
+            ])
+            ->whereHas('tryoutSubtest', function ($query) use ($tryout) {
+                $query->where('tryout_id', $tryout->id);
+            })
+            ->where('is_active', true)
+            ->orderBy('order_no')
+            ->get();
+
+        $userAnswers = UserAnswer::where('tryout_session_id', $session->id)
+            ->get()
+            ->keyBy('tryout_question_id');
+
+        $data = $questions->map(function ($item) use ($userAnswers) {
+            $question = $item->questionBank;
+            $answer = $userAnswers->get($item->id);
+
+            return [
+                'tryout_question_id' => $item->id,
+                'subtest' => [
+                    'id' => $item->tryoutSubtest->subtest->id,
+                    'name' => $item->tryoutSubtest->subtest->name,
+                ],
+                'question' => [
+                    'id' => $question->id,
+                    'question_text' => $question->question_text,
+                    'question_image' => $question->question_image,
+                    'question_image_url' => $question->question_image_url,
+                    'discussion' => $question->discussion,
+                    'discussion_image' => $question->discussion_image,
+                    'discussion_image_url' => $question->discussion_image_url,
+                    'correct_answer' => $question->correct_answer,
+                    'options' => $question->options->map(function ($option) {
+                        return [
+                            'id' => $option->id,
+                            'option_key' => $option->option_key,
+                            'option_text' => $option->option_text,
+                        ];
+                    })->values(),
+                ],
+                'my_answer' => $answer?->answer,
+                'is_correct' => $answer?->is_correct,
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => [
+                'tryout_id' => $tryout->id,
+                'tryout_title' => $tryout->title,
+                'review' => $data,
             ],
         ]);
     }
