@@ -81,6 +81,7 @@ Route::middleware(['auth:sanctum', 'admin'])
         Route::put('/tryouts/{tryout}', [TryoutController::class, 'update']);
         Route::delete('/tryouts/{tryout}', [TryoutController::class, 'destroy']);
 
+        Route::get('/tryouts/{tryout}/subtests', [TryoutSubtestController::class, 'index']);
         Route::post('/tryouts/{tryout}/subtests', [TryoutSubtestController::class, 'store']);
         Route::put('/tryouts/{tryout}/subtests/{tryoutSubtest}', [TryoutSubtestController::class, 'update']);
         Route::delete('/tryouts/{tryout}/subtests/{tryoutSubtest}', [TryoutSubtestController::class, 'destroy']);
