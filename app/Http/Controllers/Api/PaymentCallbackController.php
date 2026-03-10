@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\EnrollmentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log; // Jangan lupa import Log
+use Illuminate\Support\Facades\Log;
 
 class PaymentCallbackController extends Controller
 {
@@ -22,7 +22,7 @@ class PaymentCallbackController extends Controller
         $grossAmount = $request->gross_amount;
         $signatureKey = $request->signature_key;
         $transactionStatus = $request->transaction_status;
-        $fraudStatus = $request->fraud_status; // Ambil fraud status
+        $fraudStatus = $request->fraud_status;
 
         // 2. Validasi Keamanan: Cek Signature Key
         $validSignature = hash('sha512', $orderCode . $statusCode . $grossAmount . $serverKey);
@@ -41,13 +41,11 @@ class PaymentCallbackController extends Controller
             return response()->json(['message' => 'Order tidak ditemukan'], 404);
         }
 
-        // 4. Validasi Nominal Pembayaran (Mencegah manipulasi harga)
-        // Midtrans mengirim gross_amount dengan format string dan 2 desimal (misal: "150000.00")
-        // Sesuaikan "$order->total_price" dengan nama kolom harga di tabel order kamu.
-        if ((float) $order->total_price !== (float) $grossAmount) {
+        // 4. Validasi Nominal Pembayaran (Gunakan grand_total sesuai database)
+        if ((float) $order->grand_total !== (float) $grossAmount) {
             Log::critical('Midtrans Gross Amount Mismatch!', [
                 'order' => $orderCode, 
-                'db_price' => $order->total_price, 
+                'db_price' => $order->grand_total, 
                 'midtrans_price' => $grossAmount
             ]);
             return response()->json(['message' => 'Nominal pembayaran tidak valid'], 400);
@@ -55,36 +53,33 @@ class PaymentCallbackController extends Controller
 
         // 5. Update status berdasarkan notifikasi
         if ($transactionStatus == 'capture') {
-            // Khusus Kartu Kredit, cek fraud status
             if ($fraudStatus == 'accept') {
                 $this->processSuccessOrder($order, $request, $enrollmentService);
             } else if ($fraudStatus == 'challenge') {
-                // Opsional: Tandai sebagai manual review / pending
-                $order->update(['status' => 'challenge']);
+                // Sesuai enum status di migration kamu (opsional, karena belum ada enum challenge, kita skip dulu atau set ke pending)
+                // $order->update(['status' => 'pending']); 
             }
         } else if ($transactionStatus == 'settlement') {
-            // Sukses untuk QRIS, Virtual Account, e-Wallet, dll
             $this->processSuccessOrder($order, $request, $enrollmentService);
         } else if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
             if ($order->status !== 'paid') {
-                $order->update(['status' => 'cancelled']);
+                $order->update(['status' => 'cancelled']); // Atau 'expired' / 'rejected' sesuai enum
             }
         }
 
         return response()->json(['message' => 'Callback diproses']);
     }
 
-    // Ekstrak logika sukses agar kode lebih bersih (DRY)
     private function processSuccessOrder($order, $request, $enrollmentService)
     {
         if ($order->status !== 'paid') {
             $enrollmentService->approveOrderAndGrantAccess($order, null);
             
             $order->update([
-                // Pastikan kolom database sesuai ('status' diupdate di service atau di sini?)
-                'status' => 'paid', // Tambahkan ini jika di Service belum ada update status
+                'status' => 'paid',
                 'midtrans_transaction_id' => $request->transaction_id,
                 'payment_reference' => $request->payment_type,
+                'paid_at' => now(), // Tambahkan ini agar field paid_at diisi
             ]);
         }
     }
