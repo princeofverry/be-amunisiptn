@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AdminPackageController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PackageCatalogController;
+use App\Http\Controllers\Api\PaymentCallbackController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\QuestionBankController;
 use App\Http\Controllers\Api\SubtestController;
@@ -15,6 +16,8 @@ use App\Http\Controllers\Api\TryoutQuestionController;
 use App\Http\Controllers\Api\TryoutSubtestController;
 use App\Http\Controllers\Api\UserTryoutController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/midtrans/callback', [PaymentCallbackController::class, 'handle']);
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
