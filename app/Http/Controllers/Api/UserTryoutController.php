@@ -12,8 +12,7 @@ use App\Models\UserAnswer;
 use App\Models\UserTryoutAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cache; // Redis sudah kita hapus dari import ini
 
 class UserTryoutController extends Controller
 {
@@ -246,21 +245,18 @@ class UserTryoutController extends Controller
                 ->get();
         });
 
-        // Acak Soal Berdasarkan Session ID 
         $questionsData = $questionsData->sortBy(function ($item) use ($session) {
             return md5($session->id . $item->id);
         })->values();
+        $userAnswers = UserAnswer::where('tryout_session_id', $session->id)
+            ->pluck('answer', 'tryout_question_id');
 
-        $redisKeyAnswers = "tryout_answers:{$session->id}";
-        $cachedAnswers = Redis::hGetAll($redisKeyAnswers);
-
-        $questions = $questionsData->map(function ($item, $index) use ($cachedAnswers, $session) {
+        $questions = $questionsData->map(function ($item, $index) use ($userAnswers, $session) {
             $question = $item->questionBank;
-            $myAnswer = $cachedAnswers[$item->id] ?? null;
+            
+            $myAnswer = $userAnswers[$item->id] ?? null;
 
-            // FITUR BARU: Acak Opsi Jawaban (A, B, C, D, E) secara deterministik per User
             $shuffledOptions = $question->options->sortBy(function ($option) use ($session, $item) {
-                // Kombinasi Session ID, Question ID, dan Option ID agar acakannya konsisten
                 return md5($session->id . $item->id . $option->id);
             })->values();
 
@@ -272,7 +268,7 @@ class UserTryoutController extends Controller
                 'options' => $shuffledOptions->map(function ($option) {
                     return [
                         'id' => $option->id,
-                        'option_key' => $option->option_key, // Key (A/B/C/D/E) dipertahankan, hanya urutan arraynya yang teracak
+                        'option_key' => $option->option_key,
                         'option_text' => $option->option_text,
                     ];
                 })->values(),
@@ -337,15 +333,25 @@ class UserTryoutController extends Controller
 
         $answer = $validated['answer'] ?? null;
 
-        $redisKeyAnswers = "tryout_answers:{$session->id}";
-        $redisKeyTimes = "tryout_answered_at:{$session->id}";
-
         if ($answer) {
-            Redis::hset($redisKeyAnswers, $tryoutQuestion->id, $answer);
-            Redis::hset($redisKeyTimes, $tryoutQuestion->id, now()->toDateTimeString());
+            $questionBank = $tryoutQuestion->questionBank;
+            $correctAnswer = $questionBank->correct_answer ?? null;
+
+            UserAnswer::updateOrCreate(
+                [
+                    'tryout_session_id' => $session->id,
+                    'tryout_question_id' => $tryoutQuestion->id,
+                ],
+                [
+                    'answer' => $answer,
+                    'is_correct' => $answer === $correctAnswer,
+                    'answered_at' => now(),
+                ]
+            );
         } else {
-            Redis::hdel($redisKeyAnswers, $tryoutQuestion->id);
-            Redis::hdel($redisKeyTimes, $tryoutQuestion->id);
+            UserAnswer::where('tryout_session_id', $session->id)
+                ->where('tryout_question_id', $tryoutQuestion->id)
+                ->delete();
         }
 
         return response()->json([
@@ -394,37 +400,6 @@ class UserTryoutController extends Controller
             ]);
         }
 
-        $redisKeyAnswers = "tryout_answers:{$session->id}";
-        $redisKeyTimes = "tryout_answered_at:{$session->id}";
-
-        $cachedAnswers = Redis::hGetAll($redisKeyAnswers);
-        $cachedTimes = Redis::hGetAll($redisKeyTimes);
-
-        if (!empty($cachedAnswers)) {
-            $questions = TryoutQuestion::with('questionBank')
-                ->where('tryout_subtest_id', $tryoutSubtest->id)
-                ->get()
-                ->keyBy('id');
-
-            foreach ($cachedAnswers as $questionId => $answer) {
-                if (isset($questions[$questionId])) {
-                    $correctAnswer = $questions[$questionId]->questionBank->correct_answer ?? null;
-                    
-                    UserAnswer::updateOrCreate(
-                        [
-                            'tryout_session_id' => $session->id,
-                            'tryout_question_id' => $questionId,
-                        ],
-                        [
-                            'answer' => $answer,
-                            'is_correct' => $answer ? $answer === $correctAnswer : null,
-                            'answered_at' => $cachedTimes[$questionId] ?? now(),
-                        ]
-                    );
-                }
-            }
-        }
-
         $subtestSession->update([
             'status' => 'finished',
             'finished_at' => now(),
@@ -456,10 +431,6 @@ class UserTryoutController extends Controller
                 'data' => $session,
             ]);
         }
-
-        $redisKeyAnswers = "tryout_answers:{$session->id}";
-        $redisKeyTimes = "tryout_answered_at:{$session->id}";
-        Redis::del([$redisKeyAnswers, $redisKeyTimes]);
 
         $session->update([
             'status' => 'finished',

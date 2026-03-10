@@ -41,7 +41,7 @@ class PaymentCallbackController extends Controller
             return response()->json(['message' => 'Order tidak ditemukan'], 404);
         }
 
-        // 4. Validasi Nominal Pembayaran (Gunakan grand_total sesuai database)
+        // 4. Validasi Nominal Pembayaran
         if ((float) $order->grand_total !== (float) $grossAmount) {
             Log::critical('Midtrans Gross Amount Mismatch!', [
                 'order' => $orderCode, 
@@ -56,14 +56,13 @@ class PaymentCallbackController extends Controller
             if ($fraudStatus == 'accept') {
                 $this->processSuccessOrder($order, $request, $enrollmentService);
             } else if ($fraudStatus == 'challenge') {
-                // Sesuai enum status di migration kamu (opsional, karena belum ada enum challenge, kita skip dulu atau set ke pending)
-                // $order->update(['status' => 'pending']); 
+                $order->update(['status' => 'pending']); 
             }
         } else if ($transactionStatus == 'settlement') {
             $this->processSuccessOrder($order, $request, $enrollmentService);
         } else if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
             if ($order->status !== 'paid') {
-                $order->update(['status' => 'cancelled']); // Atau 'expired' / 'rejected' sesuai enum
+                $order->update(['status' => 'cancelled']);
             }
         }
 
@@ -79,7 +78,7 @@ class PaymentCallbackController extends Controller
                 'status' => 'paid',
                 'midtrans_transaction_id' => $request->transaction_id,
                 'payment_reference' => $request->payment_type,
-                'paid_at' => now(), // Tambahkan ini agar field paid_at diisi
+                'paid_at' => now(),
             ]);
         }
     }
