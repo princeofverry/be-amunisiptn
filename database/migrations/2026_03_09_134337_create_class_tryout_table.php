@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('subtests', function (Blueprint $table) {
-            $table->ulid('id')->primary();
-            $table->string('name')->unique();
-            $table->enum('category', ['TPS', 'Literasi']);
+        Schema::create('class_tryout', function (Blueprint $table) {
+            $table->id();
+            $table->foreignUlid('study_class_id')->constrained('study_classes')->cascadeOnDelete();
+            $table->foreignUlid('tryout_id')->constrained('tryouts')->cascadeOnDelete();
             $table->timestamps();
+
+            $table->unique(['study_class_id', 'tryout_id']);
         });
     }
 
@@ -24,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('subtests');
+        Schema::dropIfExists('class_tryout');
     }
 };

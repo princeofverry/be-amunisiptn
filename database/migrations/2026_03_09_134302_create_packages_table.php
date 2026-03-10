@@ -6,24 +6,29 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('tryouts', function (Blueprint $table) {
+        Schema::create('packages', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            
-            $table->string('title');
+            $table->string('name');
+            $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->integer('duration_minutes');
-            $table->boolean('is_published')->default(false);
-            
+            $table->unsignedBigInteger('price');
+            $table->string('currency', 10)->default('IDR');
+            $table->boolean('is_active')->default(true);
             $table->foreignUlid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            
             $table->timestamps();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('tryouts');
+        Schema::dropIfExists('packages');
     }
 };

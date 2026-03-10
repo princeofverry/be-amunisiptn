@@ -11,10 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('subtests', function (Blueprint $table) {
+        Schema::create('study_classes', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->string('name')->unique();
-            $table->enum('category', ['TPS', 'Literasi']);
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->text('description')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->foreignUlid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
     }
@@ -24,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('subtests');
+        Schema::dropIfExists('study_classes');
     }
 };

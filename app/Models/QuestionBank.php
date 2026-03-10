@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class QuestionBank extends Model
 {
+    use HasUlids;
+
     protected $table = 'question_bank';
 
     protected $fillable = [

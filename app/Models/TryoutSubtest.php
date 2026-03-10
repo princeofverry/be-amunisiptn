@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class TryoutSubtest extends Model
 {
+    use HasUlids;
+
     protected $fillable = [
         'tryout_id',
         'subtest_id',
@@ -31,5 +34,10 @@ class TryoutSubtest extends Model
     public function tryoutQuestions()
     {
         return $this->hasMany(TryoutQuestion::class)->orderBy('order_no');
+    }
+    
+    public function subtestSessions()
+    {
+        return $this->hasMany(TryoutSubtestSession::class);
     }
 }

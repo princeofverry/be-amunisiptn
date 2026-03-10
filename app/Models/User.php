@@ -3,44 +3,38 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-// use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, HasUlids;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
         'role',
+        'google_id',
+        'phone_number',
+        'birth_date',
+        'gender',
+        'school_origin',
+        'grade_level',
+        'target_university_1',
+        'target_major_1',
+        'target_university_2',
+        'target_major_2',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -59,7 +53,17 @@ class User extends Authenticatable
     }
 
     public function tryoutSessions()
-{
-    return $this->hasMany(TryoutSession::class);
-}
+    {
+        return $this->hasMany(TryoutSession::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+    
+    public function packageEnrollments()
+    {
+        return $this->hasMany(UserPackageEnrollment::class);
+    }
 }

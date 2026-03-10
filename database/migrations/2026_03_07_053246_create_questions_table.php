@@ -6,14 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('questions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tryout_subtest_id')->constrained('tryout_subtests')->cascadeOnDelete();
+            $table->ulid('id')->primary();
+            $table->foreignUlid('tryout_subtest_id')->constrained('tryout_subtests')->cascadeOnDelete(); // Ubah ke foreignUlid
             $table->text('question_text');
             $table->text('discussion')->nullable();
             $table->string('correct_answer', 5)->nullable();
@@ -23,9 +20,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('questions');

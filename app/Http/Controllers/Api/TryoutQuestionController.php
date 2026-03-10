@@ -9,6 +9,7 @@ use App\Models\TryoutQuestion;
 use App\Models\TryoutSubtest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class TryoutQuestionController extends Controller
 {
@@ -20,11 +21,15 @@ class TryoutQuestionController extends Controller
             ], 404);
         }
 
-        $items = TryoutQuestion::with(['questionBank.options', 'questionBank.subtest'])
-            ->where('tryout_subtest_id', $tryoutSubtest->id)
-            ->orderBy('order_no')
-            ->orderBy('id')
-            ->get();
+        $cacheKey = "admin_tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions";
+        
+        $items = Cache::remember($cacheKey, 3600, function() use ($tryoutSubtest) {
+            return TryoutQuestion::with(['questionBank.options', 'questionBank.subtest'])
+                ->where('tryout_subtest_id', $tryoutSubtest->id)
+                ->orderBy('order_no')
+                ->orderBy('id')
+                ->get();
+        });
 
         return response()->json([
             'data' => $items,
@@ -71,6 +76,9 @@ class TryoutQuestionController extends Controller
         ]);
 
         $item->load(['questionBank.options', 'questionBank.subtest']);
+        
+        Cache::forget("admin_tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions");
+        Cache::forget("tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions");
 
         return response()->json([
             'message' => 'Soal bank berhasil ditambahkan ke tryout',
@@ -109,6 +117,9 @@ class TryoutQuestionController extends Controller
         $tryoutQuestion->update($validated);
         $tryoutQuestion->load(['questionBank.options', 'questionBank.subtest']);
 
+        Cache::forget("admin_tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions");
+        Cache::forget("tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions");
+
         return response()->json([
             'message' => 'Soal tryout berhasil diupdate',
             'data' => $tryoutQuestion,
@@ -124,6 +135,9 @@ class TryoutQuestionController extends Controller
         }
 
         $tryoutQuestion->delete();
+        
+        Cache::forget("admin_tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions");
+        Cache::forget("tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions");
 
         return response()->json([
             'message' => 'Soal tryout berhasil dihapus',
