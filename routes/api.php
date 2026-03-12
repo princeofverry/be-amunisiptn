@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-tryouts', 'myTryouts');
         
         Route::prefix('tryouts/{tryout}')->group(function () {
+            Route::post('/enroll', 'enroll'); 
             Route::post('/start', 'start');
             Route::post('/finish', 'finish');
             Route::get('/result', 'result');

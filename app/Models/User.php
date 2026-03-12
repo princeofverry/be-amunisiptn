@@ -28,6 +28,7 @@ class User extends Authenticatable
         'target_major_1',
         'target_university_2',
         'target_major_2',
+        'ticket_balance',
     ];
 
     protected $hidden = [

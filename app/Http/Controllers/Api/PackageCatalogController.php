@@ -10,8 +10,7 @@ class PackageCatalogController extends Controller
 {
     public function index(): JsonResponse
     {
-        $packages = Package::with('tryouts')
-            ->where('is_active', true)
+        $packages = Package::where('is_active', true)
             ->latest()
             ->get();
 
@@ -22,10 +21,14 @@ class PackageCatalogController extends Controller
 
     public function show(Package $package): JsonResponse
     {
-        abort_unless($package->is_active, 404);
+        if (!$package->is_active) {
+            return response()->json([
+                'message' => 'Paket tidak tersedia'
+            ], 404);
+        }
 
         return response()->json([
-            'data' => $package->load('tryouts'),
+            'data' => $package,
         ]);
     }
 }

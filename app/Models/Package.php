@@ -14,6 +14,7 @@ class Package extends Model
         'slug',
         'description',
         'price',
+        'ticket_amount',
         'currency',
         'is_active',
         'created_by',
@@ -21,18 +22,9 @@ class Package extends Model
 
     protected $casts = [
         'price' => 'integer',
+        'ticket_amount' => 'integer',
         'is_active' => 'boolean',
     ];
-
-    public function tryouts()
-    {
-        return $this->belongsToMany(
-            Tryout::class,
-            'package_tryout',
-            'package_id',
-            'tryout_id'
-        )->withTimestamps();
-    }
 
     public function orderItems()
     {
