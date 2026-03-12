@@ -15,6 +15,7 @@ return new class extends Migration
             $table->ulid('id')->primary();
             $table->string('name')->unique();
             $table->enum('category', ['TPS', 'Literasi']);
+            $table->unsignedInteger('max_questions')->default(0);
             $table->timestamps();
         });
     }

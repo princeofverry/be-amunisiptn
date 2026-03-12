@@ -10,10 +10,9 @@ return new class extends Migration
     {
         Schema::create('tryout_subtests', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->foreignUlid('tryout_id')->constrained('tryouts')->cascadeOnDelete(); // Ubah ke foreignUlid
-            $table->foreignUlid('subtest_id')->constrained('subtests')->cascadeOnDelete(); // Ubah ke foreignUlid
+            $table->foreignUlid('tryout_id')->constrained('tryouts')->cascadeOnDelete();
+            $table->foreignUlid('subtest_id')->constrained('subtests')->cascadeOnDelete();
             $table->unsignedInteger('duration_minutes')->default(0);
-            $table->unsignedInteger('order_no')->default(1);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 

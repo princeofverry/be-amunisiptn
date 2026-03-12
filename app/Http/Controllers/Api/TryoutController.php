@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tryout;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class TryoutController extends Controller
 {
@@ -25,15 +26,23 @@ class TryoutController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+            
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'category' => ['nullable', 'string', 'max:100'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
-        $tryout = Tryout::create([
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'is_published' => $validated['is_published'] ?? false,
-            'created_by' => $request->user()->id,
-        ]);
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('tryout-images', 'public');
+        }
+
+        $validated['created_by'] = $request->user()->id;
+
+        $validated['is_published'] = $validated['is_published'] ?? false;
+
+        $tryout = Tryout::create($validated);
 
         return response()->json([
             'message' => 'Tryout berhasil dibuat',
@@ -55,14 +64,24 @@ class TryoutController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+            
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'category' => ['nullable', 'string', 'max:100'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
-        $tryout->update([
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'is_published' => $validated['is_published'] ?? false,
-        ]);
+        if ($request->hasFile('image')) {
+            if ($tryout->image && Storage::disk('public')->exists($tryout->image)) {
+                Storage::disk('public')->delete($tryout->image);
+            }
+            $validated['image'] = $request->file('image')->store('tryout-images', 'public');
+        }
+
+        $validated['is_published'] = $validated['is_published'] ?? $tryout->is_published;
+
+        $tryout->update($validated);
 
         return response()->json([
             'message' => 'Tryout berhasil diupdate',
@@ -72,6 +91,10 @@ class TryoutController extends Controller
 
     public function destroy(Tryout $tryout): JsonResponse
     {
+        if ($tryout->image && Storage::disk('public')->exists($tryout->image)) {
+            Storage::disk('public')->delete($tryout->image);
+        }
+
         $tryout->delete();
 
         return response()->json([

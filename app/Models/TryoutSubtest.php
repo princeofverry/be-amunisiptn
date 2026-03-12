@@ -13,7 +13,6 @@ class TryoutSubtest extends Model
         'tryout_id',
         'subtest_id',
         'duration_minutes',
-        'order_no',
         'is_active',
     ];
 
@@ -31,11 +30,6 @@ class TryoutSubtest extends Model
         return $this->belongsTo(Subtest::class);
     }
 
-    public function tryoutQuestions()
-    {
-        return $this->hasMany(TryoutQuestion::class)->orderBy('order_no');
-    }
-    
     public function subtestSessions()
     {
         return $this->hasMany(TryoutSubtestSession::class);

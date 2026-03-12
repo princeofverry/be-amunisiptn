@@ -14,7 +14,7 @@ class TryoutSubtestController extends Controller
     {
         $items = TryoutSubtest::with('subtest')
             ->where('tryout_id', $tryout->id)
-            ->orderBy('order_no')
+            ->inRandomOrder() 
             ->get();
 
         return response()->json([
@@ -22,39 +22,37 @@ class TryoutSubtestController extends Controller
         ]);
     }
 
-
     public function store(Request $request, Tryout $tryout): JsonResponse
     {
         $validated = $request->validate([
-            'subtest_id' => ['required', 'exists:subtests,id'],
-            'duration_minutes' => ['required', 'integer', 'min:1'],
-            'order_no' => ['required', 'integer', 'min:1'],
-            'is_active' => ['nullable', 'boolean'],
+            'subtests' => ['required', 'array'],
+            'subtests.*.subtest_id' => ['required', 'exists:subtests,id'],
+            'subtests.*.duration_minutes' => ['required', 'integer', 'min:1'],
+            'subtests.*.is_active' => ['nullable', 'boolean'],
         ]);
 
-        $exists = TryoutSubtest::where('tryout_id', $tryout->id)
-            ->where('subtest_id', $validated['subtest_id'])
-            ->exists();
+        $attachedItems = [];
 
-        if ($exists) {
-            return response()->json([
-                'message' => 'Subtest ini sudah ada di tryout tersebut',
-            ], 422);
+        foreach ($validated['subtests'] as $subtestData) {
+            $exists = TryoutSubtest::where('tryout_id', $tryout->id)
+                ->where('subtest_id', $subtestData['subtest_id'])
+                ->exists();
+
+            if (!$exists) {
+                $item = TryoutSubtest::create([
+                    'tryout_id' => $tryout->id,
+                    'subtest_id' => $subtestData['subtest_id'],
+                    'duration_minutes' => $subtestData['duration_minutes'],
+                    'is_active' => $subtestData['is_active'] ?? true,
+                ]);
+
+                $attachedItems[] = $item->load('subtest');
+            }
         }
-
-        $item = TryoutSubtest::create([
-            'tryout_id' => $tryout->id,
-            'subtest_id' => $validated['subtest_id'],
-            'duration_minutes' => $validated['duration_minutes'],
-            'order_no' => $validated['order_no'],
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
-
-        $item->load('subtest');
 
         return response()->json([
             'message' => 'Subtest berhasil ditambahkan ke tryout',
-            'data' => $item,
+            'data' => $attachedItems,
         ], 201);
     }
 
@@ -68,7 +66,6 @@ class TryoutSubtestController extends Controller
 
         $validated = $request->validate([
             'duration_minutes' => ['required', 'integer', 'min:1'],
-            'order_no' => ['required', 'integer', 'min:1'],
             'is_active' => ['required', 'boolean'],
         ]);
 
