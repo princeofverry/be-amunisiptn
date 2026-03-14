@@ -33,7 +33,7 @@ class QuestionController extends Controller
             $currentQuestionCount = Question::where('subtest_id', $subtest->id)->count();
             if ($currentQuestionCount >= $subtest->max_questions) {
                 return response()->json([
-                    'message' => 'Gagal menambah soal. Kuota maksimal soal (' . $subtest->max_questions . ') sudah terpenuhi.',
+                    'message' => 'Tidak dapat menambahkan soal karena jumlah soal sudah mencapai batas maksimal (' . $subtest->max_questions . ').'
                 ], 422);
             }
         }
@@ -55,11 +55,11 @@ class QuestionController extends Controller
 
         $optionKeys = collect($validated['options'])->pluck('option_key');
         if ($optionKeys->count() !== $optionKeys->unique()->count()) {
-            return response()->json(['message' => 'option_key tidak boleh duplikat'], 422);
+            return response()->json(['message' => 'Setiap pilihan jawaban harus memiliki huruf yang berbeda (A, B, C, D, atau E).'], 422);
         }
 
         if (! $optionKeys->contains($validated['correct_answer'])) {
-            return response()->json(['message' => 'correct_answer harus ada di dalam options'], 422);
+            return response()->json(['message' => 'Jawaban benar harus sesuai dengan salah satu pilihan jawaban.'], 422);
         }
 
         $question = DB::transaction(function () use ($request, $validated, $subtest) {
@@ -105,7 +105,7 @@ class QuestionController extends Controller
     public function show(Subtest $subtest, Question $question): JsonResponse
     {
         if ($question->subtest_id !== $subtest->id) {
-            return response()->json(['message' => 'Data soal tidak cocok dengan subtest ini'], 404);
+            return response()->json(['message' => 'Soal tidak ditemukan pada subtest ini.'], 404);
         }
 
         $question->load('options');
@@ -118,7 +118,7 @@ class QuestionController extends Controller
     public function update(Request $request, Subtest $subtest, Question $question): JsonResponse
     {
         if ($question->subtest_id !== $subtest->id) {
-            return response()->json(['message' => 'Data soal tidak cocok dengan subtest ini'], 404);
+            return response()->json(['message' => 'Soal tidak ditemukan pada subtest ini.'], 404);
         }
 
         $validated = $request->validate([
@@ -138,11 +138,11 @@ class QuestionController extends Controller
 
         $optionKeys = collect($validated['options'])->pluck('option_key');
         if ($optionKeys->count() !== $optionKeys->unique()->count()) {
-            return response()->json(['message' => 'option_key tidak boleh duplikat'], 422);
+            return response()->json(['message' => 'Setiap pilihan jawaban harus memiliki huruf yang berbeda (A, B, C, D, atau E).'], 422);
         }
 
         if (! $optionKeys->contains($validated['correct_answer'])) {
-            return response()->json(['message' => 'correct_answer harus ada di dalam options'], 422);
+            return response()->json(['message' => 'Jawaban benar harus sesuai dengan salah satu pilihan jawaban.'], 422);
         }
 
         $question = DB::transaction(function () use ($request, $validated, $question) {
@@ -201,7 +201,7 @@ class QuestionController extends Controller
     public function destroy(Subtest $subtest, Question $question): JsonResponse
     {
         if ($question->subtest_id !== $subtest->id) {
-            return response()->json(['message' => 'Data soal tidak cocok dengan subtest ini'], 404);
+            return response()->json(['message' => 'Soal tidak ditemukan pada subtest ini.'], 404);
         }
 
         if ($question->question_image) Storage::disk('public')->delete($question->question_image);
