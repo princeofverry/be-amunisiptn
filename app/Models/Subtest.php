@@ -12,6 +12,7 @@ class Subtest extends Model
     protected $fillable = [
         'name',
         'category',
+        'max_questions',
     ];
 
     public function tryoutSubtests()
@@ -19,8 +20,8 @@ class Subtest extends Model
         return $this->hasMany(TryoutSubtest::class);
     }
 
-    public function questionBank()
+    public function questions()
     {
-        return $this->hasMany(QuestionBank::class);
+        return $this->hasMany(Question::class)->orderBy('order_no');
     }
 }

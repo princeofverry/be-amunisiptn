@@ -25,6 +25,7 @@ class SubtestController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:subtests,name'],
             'category' => ['required', 'in:TPS,Literasi'],
+            'max_questions' => ['required', 'integer', 'min:1'],
         ]);
 
         $subtest = Subtest::create($validated);
@@ -56,6 +57,13 @@ class SubtestController extends Controller
 
         return response()->json([
             'message' => 'Subtest deleted successfully',
+        ]);
+    }
+
+    public function show(Subtest $subtest): JsonResponse
+    {
+        return response()->json([
+            'data' => $subtest,
         ]);
     }
 }

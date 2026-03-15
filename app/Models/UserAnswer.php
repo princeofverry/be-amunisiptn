@@ -3,32 +3,24 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 
 class UserAnswer extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'tryout_session_id',
-        'tryout_question_id',
+        'question_id',
         'answer',
         'is_correct',
-        'answered_at',
+        'score',
     ];
 
-    protected $casts = [
-        'is_correct' => 'boolean',
-        'answered_at' => 'datetime',
-    ];
-
-    public function session()
+    public function tryoutSession()
     {
-        return $this->belongsTo(TryoutSession::class, 'tryout_session_id');
+        return $this->belongsTo(TryoutSession::class);
     }
 
-    public function tryoutQuestion()
+    public function question()
     {
-        return $this->belongsTo(TryoutQuestion::class);
+        return $this->belongsTo(Question::class);
     }
 }

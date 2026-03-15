@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Support\Facades\Storage;
 
 class Tryout extends Model
 {
@@ -12,13 +13,29 @@ class Tryout extends Model
     protected $fillable = [
         'title',
         'description',
+        'image',
+        'start_date',
+        'end_date',
+        'category',
         'is_published',
         'created_by',
     ];
 
     protected $casts = [
         'is_published' => 'boolean',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
     ];
+
+    public function getImageUrlAttribute()
+    {
+        if ($this->image) {
+            return url('storage/' . $this->image);
+        }
+        return null;
+    }
+
+    protected $appends = ['image_url'];
 
     public function creator()
     {
@@ -32,7 +49,7 @@ class Tryout extends Model
 
     public function tryoutSubtests()
     {
-        return $this->hasMany(TryoutSubtest::class)->orderBy('order_no');
+        return $this->hasMany(TryoutSubtest::class);
     }
 
     public function sessions()

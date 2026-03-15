@@ -10,14 +10,16 @@ return new class extends Migration
     {
         Schema::create('tryouts', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            
             $table->string('title');
             $table->text('description')->nullable();
-            $table->integer('duration_minutes');
+            
+            $table->string('image')->nullable();
+            $table->dateTime('start_date')->nullable();
+            $table->dateTime('end_date')->nullable();
+            $table->string('category')->nullable();
+            
             $table->boolean('is_published')->default(false);
-            
-            $table->foreignUlid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            
+            $table->foreignUlid('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });
     }

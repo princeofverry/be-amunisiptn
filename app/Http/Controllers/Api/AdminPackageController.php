@@ -12,7 +12,7 @@ class AdminPackageController extends Controller
 {
     public function index(): JsonResponse
     {
-        $packages = Package::with('tryouts')->latest()->get();
+        $packages = Package::latest()->get();
 
         return response()->json([
             'data' => $packages,
@@ -26,10 +26,9 @@ class AdminPackageController extends Controller
             'slug' => ['nullable', 'string', 'max:255', 'unique:packages,slug'],
             'description' => ['nullable', 'string'],
             'price' => ['required', 'integer', 'min:0'],
+            'ticket_amount' => ['required', 'integer', 'min:1'],
             'currency' => ['nullable', 'string', 'max:10'],
             'is_active' => ['nullable', 'boolean'],
-            'tryout_ids' => ['nullable', 'array'],
-            'tryout_ids.*' => ['string', 'exists:tryouts,id'],
         ]);
 
         $package = Package::create([
@@ -37,25 +36,22 @@ class AdminPackageController extends Controller
             'slug' => $validated['slug'] ?? Str::slug($validated['name']),
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
+            'ticket_amount' => $validated['ticket_amount'],
             'currency' => $validated['currency'] ?? 'IDR',
             'is_active' => $validated['is_active'] ?? true,
             'created_by' => $request->user()->id,
         ]);
 
-        if (!empty($validated['tryout_ids'])) {
-            $package->tryouts()->sync($validated['tryout_ids']);
-        }
-
         return response()->json([
             'message' => 'Paket berhasil dibuat',
-            'data' => $package->load('tryouts'),
+            'data' => $package,
         ], 201);
     }
 
     public function show(Package $package): JsonResponse
     {
         return response()->json([
-            'data' => $package->load('tryouts'),
+            'data' => $package,
         ]);
     }
 
@@ -66,10 +62,9 @@ class AdminPackageController extends Controller
             'slug' => ['nullable', 'string', 'max:255', 'unique:packages,slug,' . $package->id],
             'description' => ['nullable', 'string'],
             'price' => ['required', 'integer', 'min:0'],
+            'ticket_amount' => ['required', 'integer', 'min:1'],
             'currency' => ['nullable', 'string', 'max:10'],
             'is_active' => ['nullable', 'boolean'],
-            'tryout_ids' => ['nullable', 'array'],
-            'tryout_ids.*' => ['string', 'exists:tryouts,id'],
         ]);
 
         $package->update([
@@ -77,17 +72,14 @@ class AdminPackageController extends Controller
             'slug' => $validated['slug'] ?? Str::slug($validated['name']),
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
+            'ticket_amount' => $validated['ticket_amount'],
             'currency' => $validated['currency'] ?? 'IDR',
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
-        if (array_key_exists('tryout_ids', $validated)) {
-            $package->tryouts()->sync($validated['tryout_ids'] ?? []);
-        }
-
         return response()->json([
             'message' => 'Paket berhasil diupdate',
-            'data' => $package->load('tryouts'),
+            'data' => $package,
         ]);
     }
 

@@ -11,12 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('subtests', function (Blueprint $table) {
-            $table->ulid('id')->primary();
-            $table->string('name')->unique();
-            $table->enum('category', ['TPS', 'Literasi']);
-            $table->unsignedInteger('max_questions')->default(0);
-            $table->timestamps();
+        Schema::table('subtests', function (Blueprint $table) {
+            $table->integer('max_questions')->after('category');
         });
     }
 
@@ -25,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('subtests');
+        Schema::table('subtests', function (Blueprint $table) {
+            //
+        });
     }
 };

@@ -3,34 +3,32 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\User;
 use App\Models\UserPackageEnrollment;
-use App\Models\UserTryoutAccess;
 use Illuminate\Support\Facades\DB;
 
 class EnrollmentService
 {
-    // Ubah $adminId menjadi nullable (?string) dengan default null
     public function approveOrderAndGrantAccess(Order $order, ?string $adminId = null): Order
     {
         return DB::transaction(function () use ($order, $adminId) {
-            $order->load('items.package.tryouts');
+            $order->load('items.package');
 
             $order->update([
                 'status' => 'paid',
                 'paid_at' => now(),
                 'approved_at' => now(),
-                'approved_by' => $adminId, // Ini akan terisi null karena di-acc oleh sistem
+                'approved_by' => $adminId,
             ]);
 
-            $userId = $order->user_id;
+            $user = User::lockForUpdate()->find($order->user_id);
 
             foreach ($order->items as $item) {
                 $package = $item->package;
 
-                // Enroll user ke paket
                 UserPackageEnrollment::firstOrCreate(
                     [
-                        'user_id' => $userId,
+                        'user_id' => $user->id,
                         'package_id' => $package->id,
                     ],
                     [
@@ -39,22 +37,12 @@ class EnrollmentService
                     ]
                 );
 
-                // Berikan akses tryout di dalam paket
-                foreach ($package->tryouts as $tryout) {
-                    UserTryoutAccess::firstOrCreate(
-                        [
-                            'user_id' => $userId,
-                            'tryout_id' => $tryout->id,
-                        ],
-                        [
-                            'access_code_id' => null,
-                            'granted_at' => now(),
-                        ]
-                    );
-                }
+                $user->ticket_balance += $package->ticket_amount;
             }
 
-            return $order->fresh(['items.package.tryouts']);
+            $user->save();
+
+            return $order->fresh(['items.package']);
         });
     }
 

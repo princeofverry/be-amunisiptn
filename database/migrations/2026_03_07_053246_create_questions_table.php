@@ -10,9 +10,14 @@ return new class extends Migration
     {
         Schema::create('questions', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->foreignUlid('tryout_subtest_id')->constrained('tryout_subtests')->cascadeOnDelete(); // Ubah ke foreignUlid
-            $table->text('question_text');
+            $table->foreignUlid('subtest_id')->constrained('subtests')->cascadeOnDelete(); 
+            
+            $table->text('question_text')->nullable(); 
+            $table->string('question_image')->nullable();
+            
             $table->text('discussion')->nullable();
+            $table->string('discussion_image')->nullable();
+            
             $table->string('correct_answer', 5)->nullable();
             $table->unsignedInteger('order_no')->default(1);
             $table->boolean('is_active')->default(true);

@@ -10,9 +10,11 @@ class Question extends Model
     use HasUlids;
 
     protected $fillable = [
-        'tryout_subtest_id',
+        'subtest_id',
         'question_text',
+        'question_image',
         'discussion',
+        'discussion_image',
         'correct_answer',
         'order_no',
         'is_active',
@@ -22,9 +24,24 @@ class Question extends Model
         'is_active' => 'boolean',
     ];
 
-    public function tryoutSubtest()
+    protected $appends = [
+        'question_image_url', 
+        'discussion_image_url'
+    ];
+
+    public function getQuestionImageUrlAttribute()
     {
-        return $this->belongsTo(TryoutSubtest::class);
+        return $this->question_image ? url('storage/' . $this->question_image) : null;
+    }
+
+    public function getDiscussionImageUrlAttribute()
+    {
+        return $this->discussion_image ? url('storage/' . $this->discussion_image) : null;
+    }
+
+    public function subtest()
+    {
+        return $this->belongsTo(Subtest::class);
     }
 
     public function options()

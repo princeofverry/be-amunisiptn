@@ -9,13 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('question_options', function (Blueprint $table) {
-            $table->ulid('id')->primary();
-            $table->foreignUlid('question_id')->constrained('questions')->cascadeOnDelete(); // Ubah ke foreignUlid
+            $table->id();
+            $table->foreignUlid('question_id')->constrained('questions')->cascadeOnDelete();
             $table->string('option_key', 5);
-            $table->text('option_text');
+            
+            $table->text('option_text')->nullable();
+            $table->string('image')->nullable();
+            
             $table->timestamps();
-
-            $table->unique(['question_id', 'option_key']);
         });
     }
 

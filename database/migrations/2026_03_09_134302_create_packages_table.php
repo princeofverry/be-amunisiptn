@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->text('description')->nullable();
             $table->unsignedBigInteger('price');
+            $table->integer('ticket_amount')->default(1);
             $table->string('currency', 10)->default('IDR');
             $table->boolean('is_active')->default(true);
             $table->foreignUlid('created_by')->nullable()->constrained('users')->nullOnDelete();
