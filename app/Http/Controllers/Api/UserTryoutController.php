@@ -18,6 +18,17 @@ use Illuminate\Support\Facades\Validator;
 
 class UserTryoutController extends Controller
 {
+    public function index(): JsonResponse
+    {
+        $tryouts = Tryout::with(['creator', 'tryoutSubtests.subtest'])
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'data' => $tryouts,
+        ]);
+    }
+
     public function enroll(Request $request, Tryout $tryout): JsonResponse
     {
         $user = $request->user();
@@ -69,15 +80,15 @@ class UserTryoutController extends Controller
                 return response()->json(['message' => 'Tiket tidak cukup. Silakan beli paket tiket terlebih dahulu.'], 403);
             }
 
-            DB::transaction(function () use ($user, $tryout) {
-                $user->decrement('ticket_balance', 1);
-
-                UserTryoutAccess::create([
-                    'user_id' => $user->id,
-                    'tryout_id' => $tryout->id,
-                    'granted_at' => now(),
-                ]);
-            });
+        DB::transaction(function () use ($user, $tryout) {
+            $user->decrement('ticket_balance', 1);
+            
+            UserTryoutAccess::create([
+                'user_id' => $user->id,
+                'tryout_id' => $tryout->id,
+                'granted_at' => now(),
+            ]);
+        });
 
             return response()->json([
                 'message' => 'Berhasil mendaftar tryout. 1 Tiket telah digunakan.',
@@ -102,8 +113,8 @@ class UserTryoutController extends Controller
             $shuffledSubtests = $tryout->tryoutSubtests->sortBy(function ($subtest) use ($user) {
                 return md5($user->id . $subtest->id);
             })->values();
-            
-            $shuffledSubtests->each(function($subtest, $index) {
+
+            $shuffledSubtests->each(function ($subtest, $index) {
                 $subtest->order_no = $index + 1;
             });
 
@@ -302,7 +313,7 @@ class UserTryoutController extends Controller
         }
 
         $cacheKey = "tryout_{$tryout->id}_subtest_{$tryoutSubtest->id}_questions";
-        $questionsData = Cache::remember($cacheKey, 3600, function() use ($tryoutSubtest) {
+        $questionsData = Cache::remember($cacheKey, 3600, function () use ($tryoutSubtest) {
             // Menggunakan Question yang terhubung ke subtest_id
             return Question::with(['options'])
                 ->where('subtest_id', $tryoutSubtest->subtest_id)
@@ -313,17 +324,17 @@ class UserTryoutController extends Controller
         $questionsData = $questionsData->sortBy(function ($item) use ($session) {
             return md5($session->id . $item->id);
         })->values();
-        
+
         $userAnswers = UserAnswer::where('tryout_session_id', $session->id)
             ->pluck('answer', 'question_id');
 
         $questions = $questionsData->map(function ($question, $index) use ($userAnswers, $session) {
             $myAnswer = $userAnswers[$question->id] ?? null;
-            
+
             $shuffledOptions = $question->options->sortBy(function ($option) use ($session, $question) {
                 return md5($session->id . $question->id . $option->id);
             })->values();
-            
+
             return [
                 'id' => $question->id,
                 'question_text' => $question->question_text,
@@ -519,7 +530,7 @@ class UserTryoutController extends Controller
 
                 $p = $correctCount / $totalParticipants;
                 $safeP = $p <= 0 ? 0.0001 : ($p >= 1 ? 0.9999 : $p);
-                $weight = max(1, log((1 - $safeP) / $safeP) + 2); 
+                $weight = max(1, log((1 - $safeP) / $safeP) + 2);
 
                 $questionStats[$q->id] = $weight;
                 $totalWeightAll += $weight;

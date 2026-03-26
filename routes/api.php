@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Route;
 | Public Routes
 |--------------------------------------------------------------------------
 */
+
 Route::post('/midtrans/callback', [PaymentCallbackController::class, 'handle']);
 
 Route::prefix('auth')->controller(AuthController::class)->group(function () {
@@ -53,20 +54,21 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Ujian & Ujian Tryout (User) ---
     Route::controller(UserTryoutController::class)->group(function () {
+        Route::get('/tryouts', 'index');
         Route::get('/my-tryouts', 'myTryouts');
-        
+
         Route::prefix('tryouts/{tryout}')->group(function () {
-            Route::post('/enroll', 'enroll'); 
+            Route::post('/enroll', 'enroll');
             Route::post('/start', 'start');
             Route::post('/finish', 'finish');
             Route::get('/result', 'result');
             Route::get('/review', 'review');
-            
+
             Route::prefix('subtests/{tryoutSubtest}')->group(function () {
                 Route::post('/start', 'startSubtest');
                 Route::post('/finish', 'finishSubtest');
                 Route::get('/exam', 'showSubtestQuestions');
-                Route::post('/questions/{question}/answer', 'submitAnswer'); 
+                Route::post('/questions/{question}/answer', 'submitAnswer');
             });
         });
     });
@@ -84,7 +86,7 @@ Route::middleware(['auth:sanctum', 'admin'])
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
 
         // --- SUBTEST & MASTER SOAL ---
-        Route::apiResource('subtests', SubtestController::class)->except(['index']); 
+        Route::apiResource('subtests', SubtestController::class)->except(['index']);
         Route::apiResource('subtests.questions', QuestionController::class);
 
         // --- TRYOUT & PENGATURAN TRYOUT ---
