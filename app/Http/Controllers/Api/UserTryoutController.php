@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class UserTryoutController extends Controller
 {
@@ -29,24 +30,60 @@ class UserTryoutController extends Controller
             return response()->json(['message' => 'Kamu sudah terdaftar di tryout ini'], 422);
         }
 
-        if ($user->ticket_balance <= 0) {
-            return response()->json(['message' => 'Tiket tidak cukup. Silakan beli paket tiket terlebih dahulu.'], 403);
-        }
-
-        DB::transaction(function () use ($user, $tryout) {
-            $user->decrement('ticket_balance', 1);
+        // --- JIKA TRYOUT GRATIS ---
+        if ($tryout->is_free) {
             
+            $validator = Validator::make($request->all(), [
+                'proof_image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048']
+            ], [
+                'proof_image.required' => 'Bukti follow sosial media wajib diunggah untuk mengikuti tryout gratis.',
+                'proof_image.image' => 'Bukti harus berupa gambar.',
+                'proof_image.mimes' => 'Format gambar harus jpeg, png, jpg, atau webp.',
+                'proof_image.max' => 'Ukuran gambar maksimal 2MB.'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validasi gagal',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $proofPath = $request->file('proof_image')->store('proof-images', 'public');
+
             UserTryoutAccess::create([
                 'user_id' => $user->id,
                 'tryout_id' => $tryout->id,
+                'proof_image' => $proofPath,
                 'granted_at' => now(),
             ]);
-        });
 
-        return response()->json([
-            'message' => 'Berhasil mendaftar tryout. 1 Tiket telah digunakan.',
-            'ticket_balance_remaining' => $user->ticket_balance - 1
-        ]);
+            return response()->json([
+                'message' => 'Berhasil mendaftar tryout gratis.',
+            ]);
+        }
+        
+        // --- JIKA TRYOUT PREMIUM ---
+        else {
+            if ($user->ticket_balance <= 0) {
+                return response()->json(['message' => 'Tiket tidak cukup. Silakan beli paket tiket terlebih dahulu.'], 403);
+            }
+
+            DB::transaction(function () use ($user, $tryout) {
+                $user->decrement('ticket_balance', 1);
+
+                UserTryoutAccess::create([
+                    'user_id' => $user->id,
+                    'tryout_id' => $tryout->id,
+                    'granted_at' => now(),
+                ]);
+            });
+
+            return response()->json([
+                'message' => 'Berhasil mendaftar tryout. 1 Tiket telah digunakan.',
+                'ticket_balance_remaining' => $user->ticket_balance // tidak perlu dikurangi manual krn user di model db sudah terupdate
+            ]);
+        }
     }
 
     public function myTryouts(Request $request): JsonResponse
@@ -551,7 +588,7 @@ class UserTryoutController extends Controller
             ->get()
             ->keyBy('question_id');
 
-        $data = $questions->map(function ($question) use ($userAnswers) {
+        $data = $questions->map(function ($question) use ($userAnswers, $tryout) {
             $answer = $userAnswers->get($question->id);
 
             return [
@@ -565,9 +602,11 @@ class UserTryoutController extends Controller
                     'question_text' => $question->question_text,
                     'question_image' => $question->question_image,
                     'question_image_url' => $question->question_image_url,
-                    'discussion' => $question->discussion,
-                    'discussion_image' => $question->discussion_image,
-                    'discussion_image_url' => $question->discussion_image_url,
+                    
+                    'discussion' => $tryout->is_free ? null : $question->discussion,
+                    'discussion_image' => $tryout->is_free ? null : $question->discussion_image,
+                    'discussion_image_url' => $tryout->is_free ? null : $question->discussion_image_url,
+                    
                     'correct_answer' => $question->correct_answer,
                     'options' => $question->options->map(function ($option) {
                         return [

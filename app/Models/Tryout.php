@@ -17,12 +17,14 @@ class Tryout extends Model
         'start_date',
         'end_date',
         'category',
+        'is_free',
         'is_published',
         'created_by',
     ];
 
     protected $casts = [
         'is_published' => 'boolean',
+        'is_free' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
     ];
