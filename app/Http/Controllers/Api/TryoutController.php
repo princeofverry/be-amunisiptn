@@ -27,10 +27,10 @@ class TryoutController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
-            
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'category' => ['nullable', 'string', 'max:100'],
+            'is_free' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -39,7 +39,7 @@ class TryoutController extends Controller
         }
 
         $validated['created_by'] = $request->user()->id;
-
+        $validated['is_free'] = $validated['is_free'] ?? false;
         $validated['is_published'] = $validated['is_published'] ?? false;
 
         $tryout = Tryout::create($validated);
@@ -65,10 +65,10 @@ class TryoutController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
-            
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'category' => ['nullable', 'string', 'max:100'],
+            'is_free' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -79,6 +79,7 @@ class TryoutController extends Controller
             $validated['image'] = $request->file('image')->store('tryout-images', 'public');
         }
 
+        $validated['is_free'] = $validated['is_free'] ?? $tryout->is_free;
         $validated['is_published'] = $validated['is_published'] ?? $tryout->is_published;
 
         $tryout->update($validated);

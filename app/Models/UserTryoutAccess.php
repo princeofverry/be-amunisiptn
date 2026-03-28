@@ -15,6 +15,7 @@ class UserTryoutAccess extends Model
         'user_id',
         'tryout_id',
         'access_code_id',
+        'proof_image',
         'granted_at',
     ];
 
