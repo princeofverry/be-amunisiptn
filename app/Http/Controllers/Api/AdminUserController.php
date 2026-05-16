@@ -9,6 +9,20 @@ use Illuminate\Http\Request;
 
 class AdminUserController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $users = User::latest()
+            ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
+            ->paginate(15);
+
+        return response()->json($users);
+    }
+
+    public function show(User $user): JsonResponse
+    {
+        return response()->json(['data' => $user]);
+    }
+
     public function destroy(Request $request, User $user): JsonResponse
     {
         if ($request->user()->id === $user->id) {

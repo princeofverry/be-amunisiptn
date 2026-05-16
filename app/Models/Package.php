@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Package extends Model
 {
@@ -14,6 +15,7 @@ class Package extends Model
         'slug',
         'description',
         'price',
+        'discount_price',
         'ticket_amount',
         'currency',
         'is_active',
@@ -22,6 +24,7 @@ class Package extends Model
 
     protected $casts = [
         'price' => 'integer',
+        'discount_price' => 'integer',
         'ticket_amount' => 'integer',
         'is_active' => 'boolean',
     ];
@@ -39,5 +42,10 @@ class Package extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function tryouts()
+    {
+        return $this->belongsToMany(Tryout::class, 'package_tryout');
     }
 }
