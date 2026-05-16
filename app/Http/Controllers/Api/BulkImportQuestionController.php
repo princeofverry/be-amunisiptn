@@ -141,54 +141,29 @@ class BulkImportQuestionController extends Controller
     }
 
     /**
-     * Download template Excel kosong
+     * Download template sebagai CSV — tidak butuh library eksternal,
+     * Excel bisa membukanya langsung dan endpoint import sudah support .csv
      */
-    public function template(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function template(): \Illuminate\Http\Response
     {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Template Soal');
-
-        // Header
-        $headers = ['Soal', 'Jawaban A', 'Jawaban B', 'Jawaban C', 'Jawaban D', 'Jawaban E', 'Penjelasan', 'Kunci Jawaban (A/B/C/D/E)'];
-        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-        foreach ($headers as $i => $label) {
-            $sheet->setCellValue($cols[$i] . '1', $label);
-        }
-
-        // Style header
-        $headerStyle = [
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '004AAB']],
+        $rows = [
+            ['Soal', 'Jawaban A', 'Jawaban B', 'Jawaban C', 'Jawaban D', 'Jawaban E', 'Penjelasan', 'Kunci Jawaban (A/B/C/D/E)'],
+            ['Berapakah nilai dari 2 + 2?', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Operasi penjumlahan dasar: 2 + 2 = 4', 'B'],
         ];
-        $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
 
-        // Auto width kolom
-        foreach ($cols as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        $handle = fopen('php://temp', 'r+');
+        // BOM agar Excel buka dengan encoding UTF-8 yang benar
+        fwrite($handle, "\xEF\xBB\xBF");
+        foreach ($rows as $row) {
+            fputcsv($handle, $row);
         }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
 
-        // Contoh baris
-        $example = [
-            'Berapakah nilai dari 2 + 2?',
-            'Tiga',
-            'Empat',
-            'Lima',
-            'Enam',
-            'Tujuh',
-            'Operasi penjumlahan dasar: 2 + 2 = 4',
-            'B',
-        ];
-        foreach ($example as $i => $val) {
-            $sheet->setCellValue($cols[$i] . '2', $val);
-        }
-
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $path   = sys_get_temp_dir() . '/template-soal-amunisi.xlsx';
-        $writer->save($path);
-
-        return response()->download($path, 'template-soal-amunisi.xlsx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ])->deleteFileAfterSend(true);
+        return response($csv, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="template-soal-amunisi.csv"',
+        ]);
     }
 }
