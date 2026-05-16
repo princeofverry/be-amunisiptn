@@ -151,8 +151,9 @@ class BulkImportQuestionController extends Controller
 
         // Header
         $headers = ['Soal', 'Jawaban A', 'Jawaban B', 'Jawaban C', 'Jawaban D', 'Jawaban E', 'Penjelasan', 'Kunci Jawaban (A/B/C/D/E)'];
-        foreach ($headers as $col => $label) {
-            $sheet->setCellValueByColumnAndRow($col + 1, 1, $label);
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        foreach ($headers as $i => $label) {
+            $sheet->setCellValue($cols[$i] . '1', $label);
         }
 
         // Style header
@@ -163,7 +164,7 @@ class BulkImportQuestionController extends Controller
         $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
 
         // Auto width kolom
-        foreach (range('A', 'H') as $col) {
+        foreach ($cols as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -178,8 +179,8 @@ class BulkImportQuestionController extends Controller
             'Operasi penjumlahan dasar: 2 + 2 = 4',
             'B',
         ];
-        foreach ($example as $col => $val) {
-            $sheet->setCellValueByColumnAndRow($col + 1, 2, $val);
+        foreach ($example as $i => $val) {
+            $sheet->setCellValue($cols[$i] . '2', $val);
         }
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);

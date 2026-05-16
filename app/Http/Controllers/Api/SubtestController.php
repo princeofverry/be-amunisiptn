@@ -39,8 +39,9 @@ class SubtestController extends Controller
     public function update(Request $request, Subtest $subtest): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:subtests,name,' . $subtest->id],
-            'category' => ['required', 'in:TPS,Literasi'],
+            'name'          => ['required', 'string', 'max:255', 'unique:subtests,name,' . $subtest->id],
+            'category'      => ['required', 'in:TPS,Literasi'],
+            'max_questions' => ['sometimes', 'integer', 'min:0'],
         ]);
 
         $subtest->update($validated);
@@ -62,6 +63,8 @@ class SubtestController extends Controller
 
     public function show(Subtest $subtest): JsonResponse
     {
+        $subtest->loadCount('questions');
+
         return response()->json([
             'data' => $subtest,
         ]);

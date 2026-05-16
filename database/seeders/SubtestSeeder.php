@@ -14,19 +14,19 @@ class SubtestSeeder extends Seeder
     {
         //
         $items = [
-            ['name' => 'Penalaran Umum', 'category' => 'TPS'],
-            ['name' => 'Pengetahuan dan Pemahaman Umum', 'category' => 'TPS'],
-            ['name' => 'Pemahaman Bacaan dan Menulis', 'category' => 'TPS'],
-            ['name' => 'Pengetahuan Kuantitatif', 'category' => 'TPS'],
-            ['name' => 'Literasi dalam Bahasa Indonesia', 'category' => 'Literasi'],
-            ['name' => 'Literasi dalam Bahasa Inggris', 'category' => 'Literasi'],
-            ['name' => 'Penalaran Matematika', 'category' => 'Literasi'],
+            ['name' => 'Penalaran Umum',                    'category' => 'TPS',     'max_questions' => 30],
+            ['name' => 'Pengetahuan dan Pemahaman Umum',    'category' => 'TPS',     'max_questions' => 20],
+            ['name' => 'Pemahaman Bacaan dan Menulis',      'category' => 'TPS',     'max_questions' => 20],
+            ['name' => 'Pengetahuan Kuantitatif',           'category' => 'TPS',     'max_questions' => 20],
+            ['name' => 'Literasi dalam Bahasa Indonesia',   'category' => 'Literasi','max_questions' => 30],
+            ['name' => 'Literasi dalam Bahasa Inggris',     'category' => 'Literasi','max_questions' => 20],
+            ['name' => 'Penalaran Matematika',              'category' => 'Literasi','max_questions' => 20],
         ];
 
         foreach ($items as $item) {
             Subtest::updateOrCreate(
                 ['name' => $item['name']],
-                ['category' => $item['category']]
+                ['category' => $item['category'], 'max_questions' => $item['max_questions']]
             );
         }
     }

@@ -98,4 +98,17 @@ class OrderController extends Controller
             'data' => $order->load('items.package'),
         ]);
     }
+
+    public function cancel(Request $request, Order $order): JsonResponse
+    {
+        abort_unless($order->user_id === $request->user()->id, 403);
+
+        if ($order->status !== 'pending') {
+            return response()->json(['message' => 'Hanya order dengan status pending yang bisa dibatalkan.'], 422);
+        }
+
+        $order->update(['status' => 'cancelled']);
+
+        return response()->json(['message' => 'Order berhasil dibatalkan.']);
+    }
 }
