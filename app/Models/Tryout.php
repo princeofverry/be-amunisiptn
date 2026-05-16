@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Support\Facades\Storage;
+use App\Models\UserTryoutAccess;
 
 class Tryout extends Model
 {
@@ -18,6 +19,7 @@ class Tryout extends Model
         'end_date',
         'category',
         'is_free',
+        'use_irt',
         'is_published',
         'created_by',
     ];
@@ -25,6 +27,7 @@ class Tryout extends Model
     protected $casts = [
         'is_published' => 'boolean',
         'is_free' => 'boolean',
+        'use_irt' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
     ];
@@ -57,5 +60,10 @@ class Tryout extends Model
     public function sessions()
     {
         return $this->hasMany(TryoutSession::class);
+    }
+
+    public function userAccesses()
+    {
+        return $this->hasMany(UserTryoutAccess::class);
     }
 }

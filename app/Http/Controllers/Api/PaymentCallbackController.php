@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\KelasOrder;
 use App\Models\Order;
+use App\Models\User;
+use App\Models\UserKelasEnrollment;
 use App\Services\EnrollmentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PaymentCallbackController extends Controller
@@ -17,23 +21,34 @@ class PaymentCallbackController extends Controller
 
         $serverKey = config('midtrans.server_key');
 
-        $orderCode = $request->order_id;
-        $statusCode = $request->status_code;
-        $grossAmount = $request->gross_amount;
-        $signatureKey = $request->signature_key;
+        $orderCode         = $request->order_id;
+        $statusCode        = $request->status_code;
+        $grossAmount       = $request->gross_amount;
+        $signatureKey      = $request->signature_key;
         $transactionStatus = $request->transaction_status;
-        $fraudStatus = $request->fraud_status;
+        $fraudStatus       = $request->fraud_status;
 
         // 2. Validasi Keamanan: Cek Signature Key
         $validSignature = hash('sha512', $orderCode . $statusCode . $grossAmount . $serverKey);
-        
+
         if ($validSignature !== $signatureKey) {
             Log::warning('Midtrans Invalid Signature', ['order' => $orderCode]);
             // Jangan lupa buka comment ini saat naik ke Production!
             // return response()->json(['message' => 'Invalid signature key'], 403);
         }
 
-        // 3. Cari Order berdasarkan Order Code
+        // 3. Routing berdasarkan prefix order code
+        if (str_starts_with($orderCode, 'KLAS-')) {
+            return $this->handleKelasCallback(
+                $orderCode,
+                $grossAmount,
+                $transactionStatus,
+                $fraudStatus,
+                $enrollmentService
+            );
+        }
+
+        // 4. Cari Order package berdasarkan Order Code
         $order = Order::where('order_code', $orderCode)->first();
 
         if (!$order) {
@@ -41,22 +56,22 @@ class PaymentCallbackController extends Controller
             return response()->json(['message' => 'Order tidak ditemukan'], 404);
         }
 
-        // 4. Validasi Nominal Pembayaran
+        // 5. Validasi Nominal Pembayaran
         if ((float) $order->grand_total !== (float) $grossAmount) {
             Log::critical('Midtrans Gross Amount Mismatch!', [
-                'order' => $orderCode, 
-                'db_price' => $order->grand_total, 
-                'midtrans_price' => $grossAmount
+                'order'          => $orderCode,
+                'db_price'       => $order->grand_total,
+                'midtrans_price' => $grossAmount,
             ]);
             return response()->json(['message' => 'Nominal pembayaran tidak valid'], 400);
         }
 
-        // 5. Update status berdasarkan notifikasi
+        // 6. Update status berdasarkan notifikasi
         if ($transactionStatus == 'capture') {
             if ($fraudStatus == 'accept') {
                 $this->processSuccessOrder($order, $request, $enrollmentService);
             } else if ($fraudStatus == 'challenge') {
-                $order->update(['status' => 'pending']); 
+                $order->update(['status' => 'pending']);
             }
         } else if ($transactionStatus == 'settlement') {
             $this->processSuccessOrder($order, $request, $enrollmentService);
@@ -69,16 +84,78 @@ class PaymentCallbackController extends Controller
         return response()->json(['message' => 'Callback diproses']);
     }
 
+    private function handleKelasCallback(
+        string $orderCode,
+        $grossAmount,
+        string $transactionStatus,
+        ?string $fraudStatus,
+        EnrollmentService $enrollmentService
+    ) {
+        $kelasOrder = KelasOrder::where('order_code', $orderCode)->first();
+
+        if (!$kelasOrder) {
+            Log::error('Midtrans Kelas Order Not Found', ['order' => $orderCode]);
+            return response()->json(['message' => 'Order tidak ditemukan'], 404);
+        }
+
+        // Validasi nominal pembayaran
+        if ((float) $kelasOrder->grand_total !== (float) $grossAmount) {
+            Log::critical('Midtrans Kelas Gross Amount Mismatch!', [
+                'order'          => $orderCode,
+                'db_price'       => $kelasOrder->grand_total,
+                'midtrans_price' => $grossAmount,
+            ]);
+            return response()->json(['message' => 'Nominal tidak valid'], 400);
+        }
+
+        if ($transactionStatus == 'settlement' || ($transactionStatus == 'capture' && $fraudStatus == 'accept')) {
+            if ($kelasOrder->status !== 'paid') {
+                $this->processKelasOrder($kelasOrder);
+            }
+        } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
+            if ($kelasOrder->status !== 'paid') {
+                $kelasOrder->update(['status' => 'cancelled']);
+            }
+        }
+
+        return response()->json(['message' => 'Callback diproses']);
+    }
+
+    private function processKelasOrder(KelasOrder $order): void
+    {
+        DB::transaction(function () use ($order) {
+            $order->update([
+                'status'  => 'paid',
+                'paid_at' => now(),
+            ]);
+
+            UserKelasEnrollment::firstOrCreate(
+                [
+                    'user_id'  => $order->user_id,
+                    'kelas_id' => $order->kelas_id,
+                ],
+                [
+                    'kelas_order_id' => $order->id,
+                    'enrolled_at'    => now(),
+                ]
+            );
+
+            $user = User::lockForUpdate()->find($order->user_id);
+            $user->ticket_balance += $order->kelas->ticket_amount;
+            $user->save();
+        });
+    }
+
     private function processSuccessOrder($order, $request, $enrollmentService)
     {
         if ($order->status !== 'paid') {
             $enrollmentService->approveOrderAndGrantAccess($order, null);
-            
+
             $order->update([
-                'status' => 'paid',
+                'status'                  => 'paid',
                 'midtrans_transaction_id' => $request->transaction_id,
-                'payment_reference' => $request->payment_type,
-                'paid_at' => now(),
+                'payment_reference'       => $request->payment_type,
+                'paid_at'                 => now(),
             ]);
         }
     }

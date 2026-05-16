@@ -21,6 +21,7 @@ class UserTryoutController extends Controller
     public function index(): JsonResponse
     {
         $tryouts = Tryout::with(['creator', 'tryoutSubtests.subtest'])
+            ->withCount('userAccesses')
             ->latest()
             ->get();
 
@@ -502,12 +503,32 @@ class UserTryoutController extends Controller
         $wrong = $session->answers()->where('is_correct', false)->count();
         $unanswered = max($totalQuestions - $answered, 0);
 
-        $now = now();
-        $isIrtReady = true;
+        $baseData = [
+            'tryout_id' => $tryout->id,
+            'tryout_title' => $tryout->title,
+            'use_irt' => $tryout->use_irt,
+            'status' => $session->status,
+            'started_at' => $session->started_at,
+            'finished_at' => $session->finished_at,
+            'summary' => [
+                'total_questions' => $totalQuestions,
+                'answered' => $answered,
+                'correct' => $correct,
+                'wrong' => $wrong,
+                'unanswered' => $unanswered,
+            ],
+            'irt_result' => null,
+        ];
 
-        if ($tryout->end_date && $now->lt($tryout->end_date)) {
-            $isIrtReady = false;
+        if (!$tryout->use_irt) {
+            return response()->json([
+                'message' => 'Hasil tryout berhasil diambil.',
+                'data' => $baseData,
+            ]);
         }
+
+        $now = now();
+        $isIrtReady = !($tryout->end_date && $now->lt($tryout->end_date));
 
         $rawIrtScore = 0;
         $finalScore1000 = 0;
@@ -545,29 +566,17 @@ class UserTryoutController extends Controller
             $finalScore1000 = ($totalWeightAll > 0) ? ($rawIrtScore / $totalWeightAll) * 1000 : 0;
         }
 
+        $baseData['irt_result'] = [
+            'is_ready' => $isIrtReady,
+            'release_date' => $tryout->end_date,
+            'total_participants_calculated' => $isIrtReady ? $totalParticipants : 0,
+            'raw_score' => $isIrtReady ? round($rawIrtScore, 2) : 0,
+            'final_score' => $isIrtReady ? round($finalScore1000, 2) : 0,
+        ];
+
         return response()->json([
             'message' => !$isIrtReady ? 'Hasil IRT sedang dalam proses dan akan keluar setelah periode tryout berakhir.' : 'Sukses mengambil data IRT',
-            'data' => [
-                'tryout_id' => $tryout->id,
-                'tryout_title' => $tryout->title,
-                'status' => $session->status,
-                'started_at' => $session->started_at,
-                'finished_at' => $session->finished_at,
-                'summary' => [
-                    'total_questions' => $totalQuestions,
-                    'answered' => $answered,
-                    'correct' => $correct,
-                    'wrong' => $wrong,
-                    'unanswered' => $unanswered,
-                ],
-                'irt_result' => [
-                    'is_ready' => $isIrtReady,
-                    'release_date' => $tryout->end_date,
-                    'total_participants_calculated' => $isIrtReady ? $totalParticipants : 0,
-                    'raw_score' => $isIrtReady ? round($rawIrtScore, 2) : 0,
-                    'final_score' => $isIrtReady ? round($finalScore1000, 2) : 0,
-                ]
-            ],
+            'data' => $baseData,
         ]);
     }
 

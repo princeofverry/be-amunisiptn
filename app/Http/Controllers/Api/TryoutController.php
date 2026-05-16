@@ -32,6 +32,7 @@ class TryoutController extends Controller
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'category' => ['nullable', 'string', 'max:100'],
             'is_free' => ['nullable', 'boolean'],
+            'use_irt' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -41,6 +42,7 @@ class TryoutController extends Controller
 
         $validated['created_by'] = $request->user()->id;
         $validated['is_free'] = $validated['is_free'] ?? false;
+        $validated['use_irt'] = $validated['use_irt'] ?? true;
         $validated['is_published'] = $validated['is_published'] ?? false;
 
         $tryout = Tryout::create($validated);
@@ -71,6 +73,7 @@ class TryoutController extends Controller
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'category' => ['nullable', 'string', 'max:100'],
             'is_free' => ['nullable', 'boolean'],
+            'use_irt' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -82,6 +85,7 @@ class TryoutController extends Controller
         }
 
         $validated['is_free'] = $validated['is_free'] ?? $tryout->is_free;
+        $validated['use_irt'] = $validated['use_irt'] ?? $tryout->use_irt;
         $validated['is_published'] = $validated['is_published'] ?? $tryout->is_published;
 
         $tryout->update($validated);
