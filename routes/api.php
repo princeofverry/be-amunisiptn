@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\TryoutController;
 use App\Http\Controllers\Api\TryoutSubtestController;
 use App\Http\Controllers\Api\UserTryoutController;
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\AdminStatsController;
+use App\Http\Controllers\Api\BulkImportQuestionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -83,11 +85,16 @@ Route::middleware(['auth:sanctum', 'admin'])
     ->prefix('admin')
     ->group(function () {
 
+        Route::get('/stats', [AdminStatsController::class, 'index']);
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{user}', [AdminUserController::class, 'show']);
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
 
         // --- SUBTEST & MASTER SOAL ---
         Route::apiResource('subtests', SubtestController::class)->except(['index']);
         Route::apiResource('subtests.questions', QuestionController::class);
+        Route::post('/subtests/{subtest}/questions/bulk-import', [BulkImportQuestionController::class, 'store']);
+        Route::get('/questions/bulk-import/template', [BulkImportQuestionController::class, 'template']);
 
         // --- TRYOUT & PENGATURAN TRYOUT ---
         Route::apiResource('tryouts', TryoutController::class);
@@ -98,6 +105,9 @@ Route::middleware(['auth:sanctum', 'admin'])
 
         // --- PACKAGES & ORDERS ---
         Route::apiResource('packages', AdminPackageController::class);
+        Route::get('/packages/{package}/tryouts', [AdminPackageController::class, 'getTryouts']);
+        Route::post('/packages/{package}/tryouts', [AdminPackageController::class, 'attachTryout']);
+        Route::delete('/packages/{package}/tryouts/{tryout}', [AdminPackageController::class, 'detachTryout']);
         Route::apiResource('orders', AdminOrderController::class)->only(['index', 'show']);
         Route::controller(AdminOrderController::class)->prefix('orders/{order}')->group(function () {
             Route::post('/approve', 'approve');

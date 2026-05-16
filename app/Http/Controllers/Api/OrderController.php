@@ -36,23 +36,25 @@ class OrderController extends Controller
 
         $package = Package::where('is_active', true)->findOrFail($validated['package_id']);
 
-        $order = DB::transaction(function () use ($request, $package) {
+        $finalPrice = $package->discount_price ?? $package->price;
+
+        $order = DB::transaction(function () use ($request, $package, $finalPrice) {
             $order = Order::create([
                 'order_code' => 'ORD-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(6)),
                 'user_id' => $request->user()->id,
-                'grand_total' => $package->price,
+                'grand_total' => $finalPrice,
                 'currency' => $package->currency ?? 'IDR',
-                'status' => 'pending', // Langsung pending (menunggu pembayaran)
-                'payment_method' => 'midtrans', // Fix 100% midtrans
+                'status' => 'pending',
+                'payment_method' => 'midtrans',
             ]);
 
             OrderItem::create([
                 'order_id' => $order->id,
                 'package_id' => $package->id,
                 'package_name_snapshot' => $package->name,
-                'price' => $package->price,
+                'price' => $finalPrice,
                 'qty' => 1,
-                'subtotal' => $package->price,
+                'subtotal' => $finalPrice,
             ]);
 
             return $order;
