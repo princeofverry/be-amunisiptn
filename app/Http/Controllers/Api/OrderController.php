@@ -7,12 +7,14 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Package;
 use App\Services\AuditLogger;
+use App\Services\EnrollmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Midtrans\Config;
 use Midtrans\Snap;
+use Midtrans\Transaction;
 
 class OrderController extends Controller
 {
@@ -100,6 +102,50 @@ class OrderController extends Controller
         return response()->json([
             'data' => $order->load('items.package'),
         ]);
+    }
+
+    public function verifyPayment(Request $request, Order $order, EnrollmentService $enrollmentService): JsonResponse
+    {
+        abort_unless($order->user_id === $request->user()->id, 403);
+
+        if (in_array($order->status, ['paid', 'approved', 'cancelled', 'rejected'])) {
+            return response()->json([
+                'message' => 'Order sudah diproses.',
+                'status'  => $order->status,
+            ]);
+        }
+
+        Config::$serverKey   = config('midtrans.server_key');
+        Config::$isProduction = config('midtrans.is_production');
+
+        try {
+            $midtransStatus = Transaction::status($order->order_code);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Gagal mengecek status pembayaran.'], 502);
+        }
+
+        $transactionStatus = $midtransStatus->transaction_status ?? '';
+        $fraudStatus       = $midtransStatus->fraud_status ?? 'accept';
+
+        if (in_array($transactionStatus, ['capture', 'settlement']) && $fraudStatus === 'accept') {
+            if ($order->status !== 'paid') {
+                $enrollmentService->approveOrderAndGrantAccess($order, null);
+                $order->update([
+                    'status'                  => 'paid',
+                    'midtrans_transaction_id'  => $midtransStatus->transaction_id ?? null,
+                    'payment_reference'        => $midtransStatus->payment_type ?? null,
+                    'paid_at'                 => now(),
+                ]);
+            }
+            return response()->json(['message' => 'Pembayaran dikonfirmasi.', 'status' => 'paid']);
+        }
+
+        if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
+            $order->update(['status' => 'cancelled']);
+            return response()->json(['message' => 'Pembayaran dibatalkan/kedaluwarsa.', 'status' => 'cancelled']);
+        }
+
+        return response()->json(['message' => 'Pembayaran belum selesai.', 'status' => $order->status]);
     }
 
     public function cancel(Request $request, Order $order): JsonResponse

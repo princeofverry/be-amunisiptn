@@ -15,9 +15,12 @@ class AdminOrderController extends Controller
         protected EnrollmentService $enrollmentService
     ) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $orders = Order::with(['user', 'items.package'])->latest()->get();
+        $orders = Order::with(['user', 'items.package'])
+            ->where('status', '!=', 'pending')
+            ->latest()
+            ->get();
 
         return response()->json([
             'data' => $orders,

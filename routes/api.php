@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-orders', [OrderController::class, 'index']);
     Route::apiResource('orders', OrderController::class)->only(['store', 'show']);
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
+    Route::post('/orders/{order}/verify-payment', [OrderController::class, 'verifyPayment']);
 
     // --- Ujian & Ujian Tryout (User) ---
     Route::controller(UserTryoutController::class)->group(function () {

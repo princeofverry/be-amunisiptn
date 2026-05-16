@@ -11,9 +11,10 @@ class AdminUserController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $perPage = min((int) ($request->per_page ?? 15), 100);
         $users = User::latest()
             ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
-            ->paginate(15);
+            ->paginate($perPage);
 
         return response()->json($users);
     }
