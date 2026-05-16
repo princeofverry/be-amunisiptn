@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\AuditLogger;
 use App\Services\EnrollmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,7 @@ class AdminOrderController extends Controller
             $order,
             $request->user()->id
         );
+        AuditLogger::log('Order', 'approve', "Order #{$order->order_code} di-approve untuk {$order->user?->name}", $request->user(), $order);
 
         return response()->json([
             'message' => 'Order berhasil di-approve dan user sudah di-enroll',
@@ -59,6 +61,7 @@ class AdminOrderController extends Controller
             $order,
             $validated['admin_note'] ?? null
         );
+        AuditLogger::log('Order', 'reject', "Order #{$order->order_code} ditolak. Catatan: " . ($validated['admin_note'] ?? '-'), $request->user(), $order);
 
         return response()->json([
             'message' => 'Order ditolak',

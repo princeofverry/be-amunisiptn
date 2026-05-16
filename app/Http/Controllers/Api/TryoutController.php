@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tryout;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -43,6 +44,7 @@ class TryoutController extends Controller
         $validated['is_published'] = $validated['is_published'] ?? false;
 
         $tryout = Tryout::create($validated);
+        AuditLogger::log('Tryout', 'create', "Tryout dibuat: \"{$tryout->title}\"", $request->user(), $tryout);
 
         return response()->json([
             'message' => 'Tryout berhasil dibuat',
@@ -83,6 +85,7 @@ class TryoutController extends Controller
         $validated['is_published'] = $validated['is_published'] ?? $tryout->is_published;
 
         $tryout->update($validated);
+        AuditLogger::log('Tryout', 'update', "Tryout diupdate: \"{$tryout->title}\"", $request->user(), $tryout);
 
         return response()->json([
             'message' => 'Tryout berhasil diupdate',
@@ -90,12 +93,13 @@ class TryoutController extends Controller
         ]);
     }
 
-    public function destroy(Tryout $tryout): JsonResponse
+    public function destroy(Request $request, Tryout $tryout): JsonResponse
     {
         if ($tryout->image && Storage::disk('public')->exists($tryout->image)) {
             Storage::disk('public')->delete($tryout->image);
         }
 
+        AuditLogger::log('Tryout', 'delete', "Tryout dihapus: \"{$tryout->title}\"", $request->user());
         $tryout->delete();
 
         return response()->json([

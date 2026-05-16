@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Package;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,8 @@ class OrderController extends Controller
             return response()->json(['message' => 'Gagal terhubung ke server pembayaran.'], 500);
         }
 
+        AuditLogger::log('Order', 'create', "Order dibuat: #{$order->order_code} ({$package->name}) Rp" . number_format($finalPrice, 0, ',', '.'), $request->user(), $order);
+
         return response()->json([
             'message' => 'Silakan lakukan pembayaran',
             'data' => $order->load('items.package'),
@@ -108,6 +111,7 @@ class OrderController extends Controller
         }
 
         $order->update(['status' => 'cancelled']);
+        AuditLogger::log('Order', 'cancel', "Order dibatalkan: #{$order->order_code}", $request->user(), $order);
 
         return response()->json(['message' => 'Order berhasil dibatalkan.']);
     }

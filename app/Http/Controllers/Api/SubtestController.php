@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subtest;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,6 +30,7 @@ class SubtestController extends Controller
         ]);
 
         $subtest = Subtest::create($validated);
+        AuditLogger::log('Subtest', 'create', "Subtest dibuat: \"{$subtest->name}\"", $request->user(), $subtest);
 
         return response()->json([
             'message' => 'Subtest created successfully',
@@ -45,6 +47,7 @@ class SubtestController extends Controller
         ]);
 
         $subtest->update($validated);
+        AuditLogger::log('Subtest', 'update', "Subtest diupdate: \"{$subtest->name}\"", $request->user(), $subtest);
 
         return response()->json([
             'message' => 'Subtest updated successfully',
@@ -52,8 +55,9 @@ class SubtestController extends Controller
         ]);
     }
 
-    public function destroy(Subtest $subtest): JsonResponse
+    public function destroy(Request $request, Subtest $subtest): JsonResponse
     {
+        AuditLogger::log('Subtest', 'delete', "Subtest dihapus: \"{$subtest->name}\"", $request->user());
         $subtest->delete();
 
         return response()->json([

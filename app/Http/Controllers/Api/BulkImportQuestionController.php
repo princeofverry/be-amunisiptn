@@ -6,16 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\Subtest;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class BulkImportQuestionController extends Controller
 {
     /**
-     * Format kolom Excel:
+     * Format kolom CSV:
      * Kolom 1 : Soal (question_text)
      * Kolom 2 : Jawaban A
      * Kolom 3 : Jawaban B
@@ -28,24 +27,36 @@ class BulkImportQuestionController extends Controller
     public function store(Request $request, Subtest $subtest): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'],
+            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
 
         $file = $request->file('file');
 
-        try {
-            $spreadsheet = IOFactory::load($file->getRealPath());
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'File tidak dapat dibaca. Pastikan format file benar (xlsx/xls/csv).'], 422);
+        // Baca CSV dengan native PHP — tidak butuh library eksternal
+        $handle = fopen($file->getRealPath(), 'r');
+        if (!$handle) {
+            return response()->json(['message' => 'File tidak dapat dibaca.'], 422);
         }
 
-        $sheet = $spreadsheet->getActiveSheet();
-        $rows  = $sheet->toArray(null, true, true, false);
+        // Hilangkan BOM UTF-8 jika ada
+        $bom = fread($handle, 3);
+        if ($bom !== "\xEF\xBB\xBF") {
+            rewind($handle);
+        }
+
+        $rows = [];
+        while (($row = fgetcsv($handle, 0, ',')) !== false) {
+            $rows[] = $row;
+        }
+        fclose($handle);
+
+        if (empty($rows)) {
+            return response()->json(['message' => 'File CSV kosong.'], 422);
+        }
 
         // Hapus baris pertama jika header
-        $firstRow = array_values($rows[0] ?? []);
-        $isHeader = is_string($firstRow[0] ?? null) &&
-                    stripos((string)($firstRow[0] ?? ''), 'soal') !== false;
+        $firstCell = trim((string)($rows[0][0] ?? ''));
+        $isHeader  = stripos($firstCell, 'soal') !== false || stripos($firstCell, 'pertanyaan') !== false;
         if ($isHeader) {
             array_shift($rows);
         }
@@ -130,6 +141,10 @@ class BulkImportQuestionController extends Controller
             });
 
             $imported++;
+        }
+
+        if ($imported > 0) {
+            AuditLogger::log('Question', 'bulk_import', "Import {$imported} soal ke subtest \"{$subtest->name}\"" . ($skipped > 0 ? ", {$skipped} baris dilewati" : ''), $request->user(), $subtest);
         }
 
         return response()->json([

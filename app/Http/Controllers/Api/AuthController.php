@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -29,6 +30,8 @@ class AuthController extends Controller
 
         $tokenRaw = $user->createToken('auth-token')->plainTextToken;
         $token = explode('|', $tokenRaw, 2)[1];
+
+        AuditLogger::log('Auth', 'register', "Pengguna baru mendaftar: {$user->name} ({$user->email})", $user);
 
         return response()->json([
             'message' => 'User registered successfully',
@@ -64,6 +67,8 @@ class AuthController extends Controller
         $tokenRaw = $user->createToken('auth-token')->plainTextToken;
         $token = explode('|', $tokenRaw, 2)[1];
 
+        AuditLogger::log('Auth', 'login', "Login berhasil: {$user->name} ({$user->email})", $user);
+
         return response()->json([
             'message' => 'Login berhasil',
             'user' => $user,
@@ -80,7 +85,9 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        AuditLogger::log('Auth', 'logout', "Logout: {$user->name} ({$user->email})", $user);
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Logout berhasil',

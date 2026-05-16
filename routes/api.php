@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\TryoutSubtestController;
 use App\Http\Controllers\Api\UserTryoutController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AdminStatsController;
+use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\BulkImportQuestionController;
 use Illuminate\Support\Facades\Route;
 
@@ -87,6 +88,8 @@ Route::middleware(['auth:sanctum', 'admin'])
     ->group(function () {
 
         Route::get('/stats', [AdminStatsController::class, 'index']);
+        Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
+        Route::get('/audit-logs/modules', [AdminAuditLogController::class, 'modules']);
         Route::get('/users', [AdminUserController::class, 'index']);
         Route::get('/users/{user}', [AdminUserController::class, 'show']);
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
