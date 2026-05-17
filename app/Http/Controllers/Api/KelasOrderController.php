@@ -157,26 +157,32 @@ class KelasOrderController extends Controller
     private function processKelasPayment(KelasOrder $order, User $user, $midtransStatus = null): void
     {
         DB::transaction(function () use ($order, $user, $midtransStatus) {
-            $order->update([
-                'status'                 => 'paid',
-                'paid_at'                => now(),
+            // Re-fetch with lock to prevent race condition with webhook
+            $locked = KelasOrder::lockForUpdate()->find($order->id);
+            if ($locked->status === 'paid') {
+                return;
+            }
+
+            $locked->update([
+                'status'                  => 'paid',
+                'paid_at'                 => now(),
                 'midtrans_transaction_id' => $midtransStatus->transaction_id ?? null,
-                'payment_reference'      => $midtransStatus->payment_type ?? null,
+                'payment_reference'       => $midtransStatus->payment_type ?? null,
             ]);
 
             UserKelasEnrollment::firstOrCreate(
                 [
-                    'user_id'  => $order->user_id,
-                    'kelas_id' => $order->kelas_id,
+                    'user_id'  => $locked->user_id,
+                    'kelas_id' => $locked->kelas_id,
                 ],
                 [
-                    'kelas_order_id' => $order->id,
+                    'kelas_order_id' => $locked->id,
                     'enrolled_at'    => now(),
                 ]
             );
 
             $userModel = User::lockForUpdate()->find($user->id);
-            $userModel->ticket_balance += $order->kelas->ticket_amount;
+            $userModel->ticket_balance += $locked->kelas->ticket_amount;
             $userModel->save();
         });
 

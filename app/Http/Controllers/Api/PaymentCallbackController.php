@@ -33,18 +33,17 @@ class PaymentCallbackController extends Controller
 
         if ($validSignature !== $signatureKey) {
             Log::warning('Midtrans Invalid Signature', ['order' => $orderCode]);
-            // Jangan lupa buka comment ini saat naik ke Production!
-            // return response()->json(['message' => 'Invalid signature key'], 403);
+            return response()->json(['message' => 'Invalid signature key'], 403);
         }
 
         // 3. Routing berdasarkan prefix order code
         if (str_starts_with($orderCode, 'KLAS-')) {
             return $this->handleKelasCallback(
+                $request,
                 $orderCode,
                 $grossAmount,
                 $transactionStatus,
-                $fraudStatus,
-                $enrollmentService
+                $fraudStatus
             );
         }
 
@@ -85,11 +84,11 @@ class PaymentCallbackController extends Controller
     }
 
     private function handleKelasCallback(
+        Request $request,
         string $orderCode,
         $grossAmount,
         string $transactionStatus,
-        ?string $fraudStatus,
-        EnrollmentService $enrollmentService
+        ?string $fraudStatus
     ) {
         $kelasOrder = KelasOrder::where('order_code', $orderCode)->first();
 
@@ -109,54 +108,68 @@ class PaymentCallbackController extends Controller
         }
 
         if ($transactionStatus == 'settlement' || ($transactionStatus == 'capture' && $fraudStatus == 'accept')) {
-            if ($kelasOrder->status !== 'paid') {
-                $this->processKelasOrder($kelasOrder);
-            }
+            $this->processKelasOrder($kelasOrder, $request->transaction_id, $request->payment_type);
         } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-            if ($kelasOrder->status !== 'paid') {
-                $kelasOrder->update(['status' => 'cancelled']);
-            }
+            DB::transaction(function () use ($kelasOrder) {
+                $locked = KelasOrder::lockForUpdate()->find($kelasOrder->id);
+                if ($locked->status !== 'paid') {
+                    $locked->update(['status' => 'cancelled']);
+                }
+            });
         }
 
         return response()->json(['message' => 'Callback diproses']);
     }
 
-    private function processKelasOrder(KelasOrder $order): void
+    private function processKelasOrder(KelasOrder $order, ?string $transactionId = null, ?string $paymentType = null): void
     {
-        DB::transaction(function () use ($order) {
-            $order->update([
-                'status'  => 'paid',
-                'paid_at' => now(),
+        DB::transaction(function () use ($order, $transactionId, $paymentType) {
+            // Re-fetch with lock to prevent concurrent webhook race condition
+            $locked = KelasOrder::lockForUpdate()->find($order->id);
+            if ($locked->status === 'paid') {
+                return;
+            }
+
+            $locked->update([
+                'status'                  => 'paid',
+                'paid_at'                 => now(),
+                'midtrans_transaction_id' => $transactionId,
+                'payment_reference'       => $paymentType,
             ]);
 
             UserKelasEnrollment::firstOrCreate(
                 [
-                    'user_id'  => $order->user_id,
-                    'kelas_id' => $order->kelas_id,
+                    'user_id'  => $locked->user_id,
+                    'kelas_id' => $locked->kelas_id,
                 ],
                 [
-                    'kelas_order_id' => $order->id,
+                    'kelas_order_id' => $locked->id,
                     'enrolled_at'    => now(),
                 ]
             );
 
-            $user = User::lockForUpdate()->find($order->user_id);
-            $user->ticket_balance += $order->kelas->ticket_amount;
+            $user = User::lockForUpdate()->find($locked->user_id);
+            $user->ticket_balance += $locked->kelas->ticket_amount;
             $user->save();
         });
     }
 
     private function processSuccessOrder($order, $request, $enrollmentService)
     {
-        if ($order->status !== 'paid') {
-            $enrollmentService->approveOrderAndGrantAccess($order, null);
+        DB::transaction(function () use ($order, $request, $enrollmentService) {
+            $locked = Order::lockForUpdate()->find($order->id);
+            if ($locked->status === 'paid') {
+                return;
+            }
 
-            $order->update([
+            $enrollmentService->approveOrderAndGrantAccess($locked, null);
+
+            $locked->update([
                 'status'                  => 'paid',
                 'midtrans_transaction_id' => $request->transaction_id,
                 'payment_reference'       => $request->payment_type,
                 'paid_at'                 => now(),
             ]);
-        }
+        });
     }
 }

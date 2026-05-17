@@ -27,11 +27,19 @@ class AdminKelasController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if ($request->discount_price === '') {
+            $request->merge(['discount_price' => null]);
+        }
+
         $validated = $request->validate([
             'name'                   => ['required', 'string', 'max:255'],
             'description'            => ['nullable', 'string'],
             'price'                  => ['required', 'integer', 'min:0'],
-            'discount_price'         => ['nullable', 'integer', 'min:0'],
+            'discount_price'         => ['nullable', 'integer', 'min:1', function ($attr, $val, $fail) use ($request) {
+                if ($val !== null && $val >= (int) $request->price) {
+                    $fail('Harga diskon harus lebih rendah dari harga asli.');
+                }
+            }],
             'ticket_amount'          => ['nullable', 'integer', 'min:0'],
             'wa_group_link'          => ['nullable', 'string', 'max:255'],
             'wa_consultation_number' => ['nullable', 'string', 'max:50'],
@@ -76,11 +84,19 @@ class AdminKelasController extends Controller
 
     public function update(Request $request, Kelas $kelas): JsonResponse
     {
+        if ($request->discount_price === '') {
+            $request->merge(['discount_price' => null]);
+        }
+
         $validated = $request->validate([
             'name'                   => ['required', 'string', 'max:255'],
             'description'            => ['nullable', 'string'],
             'price'                  => ['required', 'integer', 'min:0'],
-            'discount_price'         => ['nullable', 'integer', 'min:0'],
+            'discount_price'         => ['nullable', 'integer', 'min:1', function ($attr, $val, $fail) use ($request) {
+                if ($val !== null && $val >= (int) $request->price) {
+                    $fail('Harga diskon harus lebih rendah dari harga asli.');
+                }
+            }],
             'ticket_amount'          => ['nullable', 'integer', 'min:0'],
             'wa_group_link'          => ['nullable', 'string', 'max:255'],
             'wa_consultation_number' => ['nullable', 'string', 'max:50'],
@@ -94,8 +110,9 @@ class AdminKelasController extends Controller
             $validated['slug'] = Str::slug($validated['name']) . '-' . Str::lower(Str::random(6));
         }
 
-        $validated['ticket_amount'] = $validated['ticket_amount'] ?? 0;
-        $validated['is_active']     = $validated['is_active'] ?? $kelas->is_active;
+        $validated['ticket_amount']  = $validated['ticket_amount'] ?? 0;
+        $validated['is_active']      = $validated['is_active'] ?? $kelas->is_active;
+        $validated['discount_price'] = array_key_exists('discount_price', $validated) ? $validated['discount_price'] : null;
 
         if ($request->hasFile('image')) {
             // Delete old image

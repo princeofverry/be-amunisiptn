@@ -58,7 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-orders', [OrderController::class, 'index']);
     Route::apiResource('orders', OrderController::class)->only(['store', 'show']);
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
-    Route::post('/orders/{order}/verify-payment', [OrderController::class, 'verifyPayment']);
+    Route::post('/orders/{order}/verify-payment', [OrderController::class, 'verifyPayment'])->middleware('throttle:10,1');
 
     // Kelas (User)
     Route::get('/kelas', [UserKelasController::class, 'index']);
@@ -66,7 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/kelas/{kelas}', [UserKelasController::class, 'show']);
     Route::post('/kelas-orders', [KelasOrderController::class, 'store']);
     Route::post('/kelas-orders/{kelasOrder}/cancel', [KelasOrderController::class, 'cancel']);
-    Route::post('/kelas-orders/{kelasOrder}/verify-payment', [KelasOrderController::class, 'verifyPayment']);
+    Route::post('/kelas-orders/{kelasOrder}/verify-payment', [KelasOrderController::class, 'verifyPayment'])->middleware('throttle:10,1');
 
     // --- Ujian & Ujian Tryout (User) ---
     Route::controller(UserTryoutController::class)->group(function () {
