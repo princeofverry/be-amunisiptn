@@ -28,7 +28,13 @@ class AdminUserController extends Controller
     {
         if ($request->user()->id === $user->id) {
             return response()->json([
-                'message' => 'Anda tidak dapat menghapus akun Admin Anda sendiri.'
+                'message' => 'Anda tidak dapat menghapus akun Anda sendiri.'
+            ], 403);
+        }
+
+        if ($user->role === 'admin') {
+            return response()->json([
+                'message' => 'Akun admin tidak dapat dihapus.'
             ], 403);
         }
 
