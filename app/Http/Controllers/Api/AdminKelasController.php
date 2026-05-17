@@ -12,13 +12,17 @@ use Illuminate\Support\Str;
 
 class AdminKelasController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $kelas = Kelas::withCount('enrollments')->latest()->get();
+        $perPage = $request->integer('per_page', 15);
+        $search  = $request->string('search', '');
 
-        return response()->json([
-            'data' => $kelas,
-        ]);
+        $kelas = Kelas::withCount('enrollments')
+            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json($kelas);
     }
 
     public function store(Request $request): JsonResponse

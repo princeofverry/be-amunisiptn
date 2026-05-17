@@ -17,14 +17,16 @@ class AdminOrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $perPage = $request->integer('per_page', 15);
+        $search  = $request->string('search', '');
+
         $orders = Order::with(['user', 'items.package'])
             ->where('status', '!=', 'pending')
+            ->when($search, fn ($q) => $q->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%")))
             ->latest()
-            ->get();
+            ->paginate($perPage);
 
-        return response()->json([
-            'data' => $orders,
-        ]);
+        return response()->json($orders);
     }
 
     public function show(Order $order): JsonResponse
