@@ -75,8 +75,6 @@ class AdminKelasController extends Controller
 
     public function show(Kelas $kelas): JsonResponse
     {
-        $kelas->loadCount('enrollments');
-
         return response()->json([
             'data' => $kelas,
         ]);
