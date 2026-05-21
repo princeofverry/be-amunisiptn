@@ -22,7 +22,7 @@ class AdminAuditLogController extends Controller
             )
             ->when($request->date, fn($q, $d) => $q->whereDate('created_at', $d))
             ->latest()
-            ->paginate(50);
+            ->paginate(20);
 
         return response()->json($logs);
     }

@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\UserTryoutController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AdminStatsController;
 use App\Http\Controllers\Api\AdminAuditLogController;
+use App\Http\Controllers\Api\AdminSalesReportController;
 use App\Http\Controllers\Api\BulkImportQuestionController;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/start', 'start');
             Route::post('/finish', 'finish');
             Route::get('/result', 'result');
+            Route::get('/leaderboard', 'leaderboard');
             Route::get('/review', 'review');
 
             Route::prefix('subtests/{tryoutSubtest}')->group(function () {
@@ -100,9 +102,11 @@ Route::middleware(['auth:sanctum', 'admin'])
     ->group(function () {
 
         Route::get('/stats', [AdminStatsController::class, 'index']);
+        Route::get('/sales-report', [AdminSalesReportController::class, 'index']);
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('/audit-logs/modules', [AdminAuditLogController::class, 'modules']);
         Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/export', [AdminUserController::class, 'export']);
         Route::get('/users/{user}', [AdminUserController::class, 'show']);
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
 
@@ -111,6 +115,7 @@ Route::middleware(['auth:sanctum', 'admin'])
         Route::apiResource('subtests.questions', QuestionController::class);
         Route::post('/subtests/{subtest}/questions/bulk-import', [BulkImportQuestionController::class, 'store']);
         Route::get('/questions/bulk-import/template', [BulkImportQuestionController::class, 'template']);
+        Route::get('/questions/bulk-import/excel-template', [BulkImportQuestionController::class, 'excelTemplate']);
 
         // --- TRYOUT & PENGATURAN TRYOUT ---
         Route::apiResource('tryouts', TryoutController::class);

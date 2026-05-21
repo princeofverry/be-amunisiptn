@@ -12,6 +12,7 @@ class TryoutSession extends Model
     protected $fillable = [
         'user_id',
         'tryout_id',
+        'attempt_number',
         'started_at',
         'finished_at',
         'status',

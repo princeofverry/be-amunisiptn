@@ -14,6 +14,7 @@ class TryoutController extends Controller
     public function index(): JsonResponse
     {
         $tryouts = Tryout::with(['creator', 'tryoutSubtests.subtest'])
+            ->withCount('userAccesses')
             ->latest()
             ->get();
 
@@ -56,7 +57,8 @@ class TryoutController extends Controller
 
     public function show(Tryout $tryout): JsonResponse
     {
-        $tryout->load(['creator', 'tryoutSubtests.subtest']);
+        $tryout->load(['creator', 'tryoutSubtests.subtest'])
+            ->loadCount('userAccesses');
 
         return response()->json([
             'data' => $tryout,

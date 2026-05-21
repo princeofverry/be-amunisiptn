@@ -63,37 +63,52 @@ class UserTryoutController extends Controller
 
             $proofPath = $request->file('proof_image')->store('proof-images', 'public');
 
-            UserTryoutAccess::create([
-                'user_id' => $user->id,
-                'tryout_id' => $tryout->id,
-                'proof_image' => $proofPath,
-                'granted_at' => now(),
-            ]);
+            DB::transaction(function () use ($user, $tryout, $proofPath) {
+                UserTryoutAccess::create([
+                    'user_id' => $user->id,
+                    'tryout_id' => $tryout->id,
+                    'proof_image' => $proofPath,
+                    'granted_at' => now(),
+                ]);
+            });
 
             return response()->json([
                 'message' => 'Berhasil mendaftar tryout gratis.',
+                'participants_count' => $tryout->userAccesses()->count(),
             ]);
         }
         
         // --- JIKA TRYOUT PREMIUM ---
         else {
-            if ($user->ticket_balance <= 0) {
+            $ticketBalanceRemaining = DB::transaction(function () use ($user, $tryout) {
+                $lockedUser = $user->newQuery()
+                    ->whereKey($user->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $lockedUser || $lockedUser->ticket_balance <= 0) {
+                    return null;
+                }
+
+                $lockedUser->decrement('ticket_balance', 1);
+
+                UserTryoutAccess::create([
+                    'user_id' => $lockedUser->id,
+                    'tryout_id' => $tryout->id,
+                    'granted_at' => now(),
+                ]);
+
+                return $lockedUser->fresh()->ticket_balance;
+            });
+
+            if ($ticketBalanceRemaining === null) {
                 return response()->json(['message' => 'Tiket tidak cukup. Silakan beli paket tiket terlebih dahulu.'], 403);
             }
 
-        DB::transaction(function () use ($user, $tryout) {
-            $user->decrement('ticket_balance', 1);
-            
-            UserTryoutAccess::create([
-                'user_id' => $user->id,
-                'tryout_id' => $tryout->id,
-                'granted_at' => now(),
-            ]);
-        });
-
             return response()->json([
                 'message' => 'Berhasil mendaftar tryout. 1 Tiket telah digunakan.',
-                'ticket_balance_remaining' => $user->ticket_balance // tidak perlu dikurangi manual krn user di model db sudah terupdate
+                'ticket_balance_remaining' => $ticketBalanceRemaining,
+                'participants_count' => $tryout->userAccesses()->count(),
             ]);
         }
     }
@@ -105,12 +120,26 @@ class UserTryoutController extends Controller
         $tryoutIds = UserTryoutAccess::where('user_id', $user->id)
             ->pluck('tryout_id');
 
+        $sessionsByTryout = TryoutSession::where('user_id', $user->id)
+            ->whereIn('tryout_id', $tryoutIds)
+            ->orderByDesc('attempt_number')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('tryout_id')
+            ->map(fn ($sessions) => $sessions->first());
+
         $tryouts = Tryout::with(['tryoutSubtests.subtest'])
             ->whereIn('id', $tryoutIds)
             ->where('is_published', true)
             ->get();
 
-        $tryouts->each(function ($tryout) use ($user) {
+        $tryouts->each(function ($tryout) use ($user, $sessionsByTryout) {
+            $session = $sessionsByTryout->get($tryout->id);
+
+            $tryout->setAttribute('user_session_status', $session?->status ?? 'not_started');
+            $tryout->setAttribute('user_started_at', $session?->started_at);
+            $tryout->setAttribute('user_finished_at', $session?->finished_at);
+
             $shuffledSubtests = $tryout->tryoutSubtests->sortBy(function ($subtest) use ($user) {
                 return md5($user->id . $subtest->id);
             })->values();
@@ -141,39 +170,25 @@ class UserTryoutController extends Controller
             ], 403);
         }
 
-        $now = now();
-        if ($tryout->start_date && $now->lt($tryout->start_date)) {
-            return response()->json([
-                'message' => 'Tryout belum dimulai. Akan dimulai pada: ' . $tryout->start_date->format('d M Y H:i')
-            ], 422);
-        }
-
-        if ($tryout->end_date && $now->gt($tryout->end_date)) {
-            return response()->json([
-                'message' => 'Waktu tryout sudah berakhir.'
-            ], 422);
-        }
-
-        $existingSession = TryoutSession::where('user_id', $user->id)
+        $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', '!=', 'finished')
+            ->latest('created_at')
             ->first();
 
-        if ($existingSession && $existingSession->status === 'finished') {
-            return response()->json([
-                'message' => 'Kamu sudah menyelesaikan tryout ini dan tidak bisa mengikutinya lagi.',
-            ], 422);
-        }
+        if (! $session) {
+            $nextAttemptNumber = ((int) TryoutSession::where('user_id', $user->id)
+                ->where('tryout_id', $tryout->id)
+                ->max('attempt_number')) + 1;
 
-        $session = TryoutSession::firstOrCreate(
-            [
+            $session = TryoutSession::create([
                 'user_id' => $user->id,
                 'tryout_id' => $tryout->id,
-            ],
-            [
+                'attempt_number' => $nextAttemptNumber,
                 'started_at' => now(),
                 'status' => 'in_progress',
-            ]
-        );
+            ]);
+        }
 
         if ($session->status === 'not_started') {
             $session->update([
@@ -207,14 +222,12 @@ class UserTryoutController extends Controller
 
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', '!=', 'finished')
+            ->latest('created_at')
             ->first();
 
         if (! $session) {
             return response()->json(['message' => 'Tryout belum dimulai'], 422);
-        }
-
-        if ($session->status === 'finished') {
-            return response()->json(['message' => 'Tryout sudah selesai'], 422);
         }
 
         $subtestSession = TryoutSubtestSession::firstOrCreate(
@@ -267,14 +280,12 @@ class UserTryoutController extends Controller
 
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', '!=', 'finished')
+            ->latest('created_at')
             ->first();
 
         if (! $session) {
             return response()->json(['message' => 'Tryout belum dimulai'], 422);
-        }
-
-        if ($session->status === 'finished') {
-            return response()->json(['message' => 'Tryout sudah selesai'], 422);
         }
 
         $subtestSession = TryoutSubtestSession::where('tryout_session_id', $session->id)
@@ -392,9 +403,11 @@ class UserTryoutController extends Controller
 
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', '!=', 'finished')
+            ->latest('created_at')
             ->first();
 
-        if (! $session || $session->status === 'finished') {
+        if (! $session) {
             return response()->json(['message' => 'Sesi tidak valid'], 422);
         }
 
@@ -435,6 +448,8 @@ class UserTryoutController extends Controller
 
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', '!=', 'finished')
+            ->latest('created_at')
             ->first();
 
         $subtestSession = TryoutSubtestSession::where('tryout_session_id', $session->id ?? '')
@@ -461,6 +476,8 @@ class UserTryoutController extends Controller
         $user = $request->user();
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', '!=', 'finished')
+            ->latest('created_at')
             ->first();
 
         if (! $session) return response()->json(['message' => 'Tryout belum dimulai'], 422);
@@ -485,7 +502,17 @@ class UserTryoutController extends Controller
         $session = TryoutSession::with(['answers'])
             ->where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', 'finished')
+            ->latest('created_at')
             ->first();
+
+        if (! $session) {
+            $session = TryoutSession::with(['answers'])
+                ->where('user_id', $user->id)
+                ->where('tryout_id', $tryout->id)
+                ->latest('created_at')
+                ->first();
+        }
 
         if (! $session) {
             return response()->json(['message' => 'Session tryout tidak ditemukan'], 404);
@@ -502,11 +529,14 @@ class UserTryoutController extends Controller
         $correct = $session->answers()->where('is_correct', true)->count();
         $wrong = $session->answers()->where('is_correct', false)->count();
         $unanswered = max($totalQuestions - $answered, 0);
+        $accuracy = $totalQuestions > 0 ? ($correct / $totalQuestions) * 100 : 0;
+        $simpleFinalScore = $totalQuestions > 0 ? ($correct / $totalQuestions) * 1000 : 0;
 
         $baseData = [
             'tryout_id' => $tryout->id,
             'tryout_title' => $tryout->title,
             'use_irt' => $tryout->use_irt,
+            'attempt_number' => $session->attempt_number,
             'status' => $session->status,
             'started_at' => $session->started_at,
             'finished_at' => $session->finished_at,
@@ -516,6 +546,13 @@ class UserTryoutController extends Controller
                 'correct' => $correct,
                 'wrong' => $wrong,
                 'unanswered' => $unanswered,
+            ],
+            'score_result' => [
+                'method' => $tryout->use_irt ? 'irt' : 'simple',
+                'is_ready' => ! $tryout->use_irt,
+                'raw_score' => ! $tryout->use_irt ? $correct : 0,
+                'final_score' => ! $tryout->use_irt ? round($simpleFinalScore, 2) : 0,
+                'accuracy' => round($accuracy, 2),
             ],
             'irt_result' => null,
         ];
@@ -533,6 +570,7 @@ class UserTryoutController extends Controller
         $rawIrtScore = 0;
         $finalScore1000 = 0;
         $totalParticipants = TryoutSession::where('tryout_id', $tryout->id)
+            ->where('attempt_number', 1)
             ->where('status', 'finished')
             ->count();
 
@@ -547,6 +585,11 @@ class UserTryoutController extends Controller
             foreach ($allTryoutQuestions as $q) {
                 $correctCount = UserAnswer::where('question_id', $q->id)
                     ->where('is_correct', true)
+                    ->whereHas('tryoutSession', function ($query) use ($tryout) {
+                        $query->where('tryout_id', $tryout->id)
+                            ->where('attempt_number', 1)
+                            ->where('status', 'finished');
+                    })
                     ->count();
 
                 $p = $correctCount / $totalParticipants;
@@ -573,10 +616,118 @@ class UserTryoutController extends Controller
             'raw_score' => $isIrtReady ? round($rawIrtScore, 2) : 0,
             'final_score' => $isIrtReady ? round($finalScore1000, 2) : 0,
         ];
+        $baseData['score_result'] = [
+            'method' => 'irt',
+            'is_ready' => $isIrtReady,
+            'raw_score' => $isIrtReady ? round($rawIrtScore, 2) : 0,
+            'final_score' => $isIrtReady ? round($finalScore1000, 2) : 0,
+            'accuracy' => round($accuracy, 2),
+        ];
 
         return response()->json([
             'message' => !$isIrtReady ? 'Hasil IRT sedang dalam proses dan akan keluar setelah periode tryout berakhir.' : 'Sukses mengambil data IRT',
             'data' => $baseData,
+        ]);
+    }
+
+    public function leaderboard(Tryout $tryout): JsonResponse
+    {
+        $subtestIds = TryoutSubtest::where('tryout_id', $tryout->id)->pluck('subtest_id');
+        $totalQuestions = Question::whereIn('subtest_id', $subtestIds)
+            ->where('is_active', true)
+            ->count();
+
+        $sessions = TryoutSession::with(['user', 'answers'])
+            ->where('tryout_id', $tryout->id)
+            ->where('attempt_number', 1)
+            ->where('status', 'finished')
+            ->get();
+
+        $questionWeights = [];
+        $totalWeightAll = 0;
+
+        if ($tryout->use_irt && $sessions->isNotEmpty()) {
+            $allTryoutQuestions = Question::whereIn('subtest_id', $subtestIds)
+                ->where('is_active', true)
+                ->get();
+
+            foreach ($allTryoutQuestions as $question) {
+                $correctCount = UserAnswer::where('question_id', $question->id)
+                    ->where('is_correct', true)
+                    ->whereHas('tryoutSession', function ($query) use ($tryout) {
+                        $query->where('tryout_id', $tryout->id)
+                            ->where('attempt_number', 1)
+                            ->where('status', 'finished');
+                    })
+                    ->count();
+
+                $p = $correctCount / $sessions->count();
+                $safeP = $p <= 0 ? 0.0001 : ($p >= 1 ? 0.9999 : $p);
+                $weight = max(1, log((1 - $safeP) / $safeP) + 2);
+
+                $questionWeights[$question->id] = $weight;
+                $totalWeightAll += $weight;
+            }
+        }
+
+        $leaderboard = $sessions
+            ->map(function ($session) use ($totalQuestions, $tryout, $questionWeights, $totalWeightAll) {
+                $answered = $session->answers->whereNotNull('answer')->count();
+                $correct = $session->answers->where('is_correct', true)->count();
+                $wrong = $session->answers->where('is_correct', false)->count();
+                $unanswered = max($totalQuestions - $answered, 0);
+                $accuracy = $totalQuestions > 0 ? ($correct / $totalQuestions) * 100 : 0;
+
+                if ($tryout->use_irt && $totalWeightAll > 0) {
+                    $rawScore = $session->answers
+                        ->where('is_correct', true)
+                        ->sum(fn ($answer) => $questionWeights[$answer->question_id] ?? 0);
+                    $finalScore = ($rawScore / $totalWeightAll) * 1000;
+                } else {
+                    $rawScore = $correct;
+                    $finalScore = $totalQuestions > 0 ? ($correct / $totalQuestions) * 1000 : 0;
+                }
+
+                return [
+                    'user_id' => $session->user_id,
+                    'user_name' => $session->user?->name ?? 'Peserta',
+                    'attempt_number' => $session->attempt_number,
+                    'started_at' => $session->started_at,
+                    'finished_at' => $session->finished_at,
+                    'summary' => [
+                        'total_questions' => $totalQuestions,
+                        'answered' => $answered,
+                        'correct' => $correct,
+                        'wrong' => $wrong,
+                        'unanswered' => $unanswered,
+                        'accuracy' => round($accuracy, 2),
+                    ],
+                    'score' => [
+                        'raw_score' => round($rawScore, 2),
+                        'final_score' => round($finalScore, 2),
+                    ],
+                ];
+            })
+            ->sortBy([
+                ['score.final_score', 'desc'],
+                ['summary.correct', 'desc'],
+                ['finished_at', 'asc'],
+            ])
+            ->values()
+            ->map(function ($row, $index) {
+                $row['rank'] = $index + 1;
+
+                return $row;
+            });
+
+        return response()->json([
+            'data' => [
+                'tryout_id' => $tryout->id,
+                'tryout_title' => $tryout->title,
+                'use_irt' => $tryout->use_irt,
+                'leaderboard_basis' => 'attempt_number_1',
+                'leaderboard' => $leaderboard,
+            ],
         ]);
     }
 
@@ -586,6 +737,8 @@ class UserTryoutController extends Controller
 
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
+            ->where('status', 'finished')
+            ->latest('created_at')
             ->first();
 
         if (! $session) {
