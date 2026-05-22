@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\Subtest;
+use App\Support\RichTextSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,9 +70,9 @@ class QuestionController extends Controller
 
             $question = Question::create([
                 'subtest_id' => $subtest->id,
-                'question_text' => $validated['question_text'] ?? null,
+                'question_text' => RichTextSanitizer::sanitize($validated['question_text'] ?? null),
                 'question_image' => $qImage,
-                'discussion' => $validated['discussion'] ?? null,
+                'discussion' => RichTextSanitizer::sanitize($validated['discussion'] ?? null),
                 'discussion_image' => $dImage,
                 'correct_answer' => $validated['correct_answer'],
                 'order_no' => $validated['order_no'],
@@ -88,7 +89,7 @@ class QuestionController extends Controller
                 QuestionOption::create([
                     'question_id' => $question->id,
                     'option_key' => $option['option_key'],
-                    'option_text' => $option['option_text'] ?? null,
+                    'option_text' => RichTextSanitizer::sanitize($option['option_text'] ?? null),
                     'image' => $optImage,
                 ]);
             }
@@ -134,6 +135,8 @@ class QuestionController extends Controller
             'options.*.option_key' => ['required', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
             'options.*.option_text' => ['nullable', 'string'],
             'options.*.image' => ['nullable', 'image', 'max:2048'],
+            'delete_question_image' => ['nullable', 'boolean'],
+            'delete_discussion_image' => ['nullable', 'boolean'],
         ]);
 
         $optionKeys = collect($validated['options'])->pluck('option_key');
@@ -147,21 +150,29 @@ class QuestionController extends Controller
 
         $question = DB::transaction(function () use ($request, $validated, $question) {
             $qImage = $question->question_image;
+            if ($request->boolean('delete_question_image') && $qImage) {
+                Storage::disk('public')->delete($qImage);
+                $qImage = null;
+            }
             if ($request->hasFile('question_image')) {
                 if ($qImage) Storage::disk('public')->delete($qImage);
                 $qImage = $request->file('question_image')->store('question-images', 'public');
             }
 
             $dImage = $question->discussion_image;
+            if ($request->boolean('delete_discussion_image') && $dImage) {
+                Storage::disk('public')->delete($dImage);
+                $dImage = null;
+            }
             if ($request->hasFile('discussion_image')) {
                 if ($dImage) Storage::disk('public')->delete($dImage);
                 $dImage = $request->file('discussion_image')->store('discussion-images', 'public');
             }
 
             $question->update([
-                'question_text' => $validated['question_text'] ?? null,
+                'question_text' => RichTextSanitizer::sanitize($validated['question_text'] ?? null),
                 'question_image' => $qImage,
-                'discussion' => $validated['discussion'] ?? null,
+                'discussion' => RichTextSanitizer::sanitize($validated['discussion'] ?? null),
                 'discussion_image' => $dImage,
                 'correct_answer' => $validated['correct_answer'],
                 'order_no' => $validated['order_no'],
@@ -184,7 +195,7 @@ class QuestionController extends Controller
                 QuestionOption::create([
                     'question_id' => $question->id,
                     'option_key' => $optKey,
-                    'option_text' => $option['option_text'] ?? null,
+                    'option_text' => RichTextSanitizer::sanitize($option['option_text'] ?? null),
                     'image' => $optImage,
                 ]);
             }

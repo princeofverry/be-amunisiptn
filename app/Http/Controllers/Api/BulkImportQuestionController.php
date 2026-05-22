@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\Subtest;
 use App\Services\AuditLogger;
+use App\Support\RichTextSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
+use PhpOffice\PhpSpreadsheet\RichText\Run;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
@@ -124,7 +127,7 @@ class BulkImportQuestionController extends Controller
         foreach ($sheet->getRowIterator() as $row) {
             $cells = [];
             foreach ($row->getCellIterator('A', 'I') as $cell) {
-                $cells[] = trim((string) $cell->getFormattedValue());
+                $cells[] = $this->cellToHtml($cell);
             }
             $allRows[$row->getRowIndex()] = $cells;
         }
@@ -158,15 +161,21 @@ class BulkImportQuestionController extends Controller
             $answerC       = $cells[4] ?? '';
             $answerD       = $cells[5] ?? '';
             $answerE       = $cells[6] ?? '';
-            $correctAnswer = strtoupper($cells[7] ?? '');
+            $correctAnswer = strtoupper(strip_tags($cells[7] ?? ''));
             $discussion    = $cells[8] ?? '';
 
             // Validasi teks
             $rowErrors = [];
-            if (empty($questionText)) {
+            if (trim(strip_tags($questionText)) === '') {
                 $rowErrors[] = 'Soal tidak boleh kosong.';
             }
-            if (empty($answerA) || empty($answerB) || empty($answerC) || empty($answerD) || empty($answerE)) {
+            if (
+                trim(strip_tags($answerA)) === '' ||
+                trim(strip_tags($answerB)) === '' ||
+                trim(strip_tags($answerC)) === '' ||
+                trim(strip_tags($answerD)) === '' ||
+                trim(strip_tags($answerE)) === ''
+            ) {
                 $rowErrors[] = 'Semua jawaban A-E harus diisi.';
             }
             if (!in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E'])) {
@@ -194,9 +203,9 @@ class BulkImportQuestionController extends Controller
             DB::transaction(function () use ($subtest, $questionText, $answerA, $answerB, $answerC, $answerD, $answerE, $discussion, $correctAnswer, $imagePath, $orderNo) {
                 $question = Question::create([
                     'subtest_id'     => $subtest->id,
-                    'question_text'  => $questionText,
+                    'question_text'  => RichTextSanitizer::sanitize($questionText),
                     'question_image' => $imagePath,
-                    'discussion'     => $discussion ?: null,
+                    'discussion'     => RichTextSanitizer::sanitize($discussion),
                     'correct_answer' => $correctAnswer,
                     'order_no'       => $orderNo,
                     'is_active'      => true,
@@ -206,7 +215,7 @@ class BulkImportQuestionController extends Controller
                     QuestionOption::create([
                         'question_id' => $question->id,
                         'option_key'  => $key,
-                        'option_text' => $text,
+                        'option_text' => RichTextSanitizer::sanitize($text),
                     ]);
                 }
             });
@@ -264,6 +273,43 @@ class BulkImportQuestionController extends Controller
         }
     }
 
+    private function cellToHtml(\PhpOffice\PhpSpreadsheet\Cell\Cell $cell): string
+    {
+        $value = $cell->getValue();
+
+        if (! $value instanceof RichText) {
+            return nl2br(e(trim((string) $cell->getFormattedValue())), false);
+        }
+
+        $html = '';
+        foreach ($value->getRichTextElements() as $element) {
+            $text = nl2br(e($element->getText()), false);
+
+            if ($element instanceof Run) {
+                $font = $element->getFont();
+                if ($font?->getBold()) {
+                    $text = "<strong>{$text}</strong>";
+                }
+                if ($font?->getItalic()) {
+                    $text = "<em>{$text}</em>";
+                }
+                if ($font?->getUnderline() && $font->getUnderline() !== 'none') {
+                    $text = "<u>{$text}</u>";
+                }
+                if ($font?->getSuperscript()) {
+                    $text = "<sup>{$text}</sup>";
+                }
+                if ($font?->getSubscript()) {
+                    $text = "<sub>{$text}</sub>";
+                }
+            }
+
+            $html .= $text;
+        }
+
+        return RichTextSanitizer::sanitize($html) ?? '';
+    }
+
     // -------------------------------------------------------------------------
     // Helper: iterasi baris + insert soal (shared antara CSV & Excel jika perlu)
     // -------------------------------------------------------------------------
@@ -284,11 +330,11 @@ class BulkImportQuestionController extends Controller
             $data = $mapper($row, $lineNo);
 
             $rowErrors = [];
-            if (empty($data['question_text'])) {
+            if (trim(strip_tags($data['question_text'])) === '') {
                 $rowErrors[] = 'Soal tidak boleh kosong.';
             }
             foreach ($data['options'] as $key => $val) {
-                if (empty($val)) {
+                if (trim(strip_tags($val)) === '') {
                     $rowErrors[] = "Jawaban {$key} tidak boleh kosong.";
                 }
             }
@@ -312,9 +358,9 @@ class BulkImportQuestionController extends Controller
             DB::transaction(function () use ($subtest, $data, $orderNo) {
                 $question = Question::create([
                     'subtest_id'     => $subtest->id,
-                    'question_text'  => $data['question_text'],
+                    'question_text'  => RichTextSanitizer::sanitize($data['question_text']),
                     'question_image' => $data['image'],
-                    'discussion'     => $data['discussion'] ?: null,
+                    'discussion'     => RichTextSanitizer::sanitize($data['discussion']),
                     'correct_answer' => $data['correct'],
                     'order_no'       => $orderNo,
                     'is_active'      => true,
@@ -324,7 +370,7 @@ class BulkImportQuestionController extends Controller
                     QuestionOption::create([
                         'question_id' => $question->id,
                         'option_key'  => $key,
-                        'option_text' => $text,
+                        'option_text' => RichTextSanitizer::sanitize($text),
                     ]);
                 }
             });

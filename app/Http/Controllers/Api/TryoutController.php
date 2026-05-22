@@ -8,6 +8,7 @@ use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class TryoutController extends Controller
 {
@@ -31,7 +32,7 @@ class TryoutController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'string', Rule::in(['UTBK', 'UM'])],
             'is_free' => ['nullable', 'boolean'],
             'use_irt' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
@@ -73,7 +74,7 @@ class TryoutController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'string', Rule::in(['UTBK', 'UM'])],
             'is_free' => ['nullable', 'boolean'],
             'use_irt' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
