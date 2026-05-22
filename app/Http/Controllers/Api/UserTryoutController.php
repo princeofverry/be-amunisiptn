@@ -20,10 +20,45 @@ class UserTryoutController extends Controller
 {
     public function index(): JsonResponse
     {
+        $user = request()->user();
+
+        $accessByTryout = UserTryoutAccess::where('user_id', $user->id)
+            ->get()
+            ->keyBy('tryout_id');
+
+        $sessionStatsByTryout = TryoutSession::select(
+                'tryout_id',
+                DB::raw('COUNT(*) as attempt_count'),
+                DB::raw('MAX(attempt_number) as latest_attempt_number')
+            )
+            ->where('user_id', $user->id)
+            ->groupBy('tryout_id')
+            ->get()
+            ->keyBy('tryout_id');
+
+        $sessionsByTryout = TryoutSession::where('user_id', $user->id)
+            ->orderByDesc('attempt_number')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('tryout_id')
+            ->map(fn ($sessions) => $sessions->first());
+
         $tryouts = Tryout::with(['creator', 'tryoutSubtests.subtest'])
             ->withCount('userAccesses')
             ->latest()
             ->get();
+
+        $tryouts->each(function ($tryout) use ($accessByTryout, $sessionStatsByTryout, $sessionsByTryout) {
+            $access = $accessByTryout->get($tryout->id);
+            $session = $sessionsByTryout->get($tryout->id);
+            $sessionStats = $sessionStatsByTryout->get($tryout->id);
+
+            $tryout->setAttribute('user_is_enrolled', (bool) $access);
+            $tryout->setAttribute('user_attempt_count', (int) ($sessionStats?->attempt_count ?? 0));
+            $tryout->setAttribute('user_session_status', $session?->status ?? ($access ? 'not_started' : null));
+            $tryout->setAttribute('user_started_at', $session?->started_at);
+            $tryout->setAttribute('user_finished_at', $session?->finished_at);
+        });
 
         return response()->json([
             'data' => $tryouts,
@@ -128,14 +163,23 @@ class UserTryoutController extends Controller
             ->groupBy('tryout_id')
             ->map(fn ($sessions) => $sessions->first());
 
+        $sessionCountsByTryout = TryoutSession::where('user_id', $user->id)
+            ->whereIn('tryout_id', $tryoutIds)
+            ->select('tryout_id', DB::raw('COUNT(*) as attempt_count'))
+            ->groupBy('tryout_id')
+            ->get()
+            ->pluck('attempt_count', 'tryout_id');
+
         $tryouts = Tryout::with(['tryoutSubtests.subtest'])
             ->whereIn('id', $tryoutIds)
             ->where('is_published', true)
             ->get();
 
-        $tryouts->each(function ($tryout) use ($user, $sessionsByTryout) {
+        $tryouts->each(function ($tryout) use ($user, $sessionsByTryout, $sessionCountsByTryout) {
             $session = $sessionsByTryout->get($tryout->id);
 
+            $tryout->setAttribute('user_is_enrolled', true);
+            $tryout->setAttribute('user_attempt_count', (int) ($sessionCountsByTryout->get($tryout->id) ?? 0));
             $tryout->setAttribute('user_session_status', $session?->status ?? 'not_started');
             $tryout->setAttribute('user_started_at', $session?->started_at);
             $tryout->setAttribute('user_finished_at', $session?->finished_at);
