@@ -869,7 +869,7 @@ class UserTryoutController extends Controller
                     'question_image' => $question->question_image,
                     'question_image_url' => $question->question_image_url,
                     
-                    'discussion' => $isUnlocked ? $question->discussion : '(Gunakan 1 Tiket untuk melihat semua pembahasan)',
+                    'discussion' => $isUnlocked ? $question->discussion : '(Gunakan 1 Tiket untuk pembahasan)',
                     'discussion_image' => $isUnlocked ? $question->discussion_image : null,
                     'discussion_image_url' => $isUnlocked ? $question->discussion_image_url : null,
                     
