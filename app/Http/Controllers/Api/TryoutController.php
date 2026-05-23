@@ -47,6 +47,7 @@ class TryoutController extends Controller
         }
 
         $validated['created_by'] = $request->user()->id;
+        $validated['category'] = $validated['category'] ?? 'UTBK';
         $validated['is_free'] = $validated['is_free'] ?? false;
         $validated['use_irt'] = $validated['use_irt'] ?? true;
         $validated['is_published'] = $validated['is_published'] ?? false;
@@ -98,6 +99,7 @@ class TryoutController extends Controller
         $validated['is_free'] = $validated['is_free'] ?? $tryout->is_free;
         $validated['use_irt'] = $validated['use_irt'] ?? $tryout->use_irt;
         $validated['is_published'] = $validated['is_published'] ?? $tryout->is_published;
+        $validated['category'] = $validated['category'] ?? $tryout->category ?? 'UTBK';
 
         $tryout->update($validated);
         AuditLogger::log('Tryout', 'update', "Tryout diupdate: \"{$tryout->title}\"", $request->user(), $tryout);

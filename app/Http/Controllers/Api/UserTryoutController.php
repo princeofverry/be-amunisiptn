@@ -854,11 +854,15 @@ class UserTryoutController extends Controller
     {
         $user = $request->user();
 
-        $session = TryoutSession::where('user_id', $user->id)
+        $sessionQuery = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
-            ->where('status', 'finished')
-            ->latest('created_at')
-            ->first();
+            ->where('status', 'finished');
+
+        if ($request->filled('attempt')) {
+            $sessionQuery->where('attempt_number', (int) $request->query('attempt'));
+        }
+
+        $session = $sessionQuery->latest('created_at')->first();
 
         if (! $session) {
             return response()->json(['message' => 'Session tryout tidak ditemukan'], 404);
@@ -923,6 +927,7 @@ class UserTryoutController extends Controller
             'data' => [
                 'tryout_id' => $tryout->id,
                 'tryout_title' => $tryout->title,
+                'attempt_number' => $session->attempt_number,
                 'review' => $data,
             ],
         ]);
