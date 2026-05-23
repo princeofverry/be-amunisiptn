@@ -81,6 +81,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/result', 'result');
             Route::get('/leaderboard', 'leaderboard');
             Route::get('/review', 'review');
+            Route::post('/unlock-discussion', 'unlockDiscussion');
 
             Route::prefix('subtests/{tryoutSubtest}')->group(function () {
                 Route::post('/start', 'startSubtest');

@@ -776,6 +776,48 @@ class UserTryoutController extends Controller
         ]);
     }
 
+    public function unlockDiscussion(Request $request, Tryout $tryout): JsonResponse
+    {
+        $user = $request->user();
+
+        $access = UserTryoutAccess::where('user_id', $user->id)
+            ->where('tryout_id', $tryout->id)
+            ->first();
+
+        if (! $access) {
+            return response()->json(['message' => 'Akses tryout tidak ditemukan'], 404);
+        }
+
+        if ($access->discussion_unlocked || !$tryout->is_free) {
+            return response()->json(['message' => 'Pembahasan sudah terbuka'], 422);
+        }
+
+        $success = DB::transaction(function () use ($user, $access) {
+            $lockedUser = $user->newQuery()
+                ->whereKey($user->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $lockedUser || $lockedUser->ticket_balance <= 0) {
+                return false;
+            }
+
+            $lockedUser->decrement('ticket_balance', 1);
+            $access->update(['discussion_unlocked' => true]);
+
+            return true;
+        });
+
+        if (! $success) {
+            return response()->json(['message' => 'Tiket tidak cukup. Silakan beli paket tiket terlebih dahulu.'], 403);
+        }
+
+        return response()->json([
+            'message' => 'Pembahasan berhasil dibuka. 1 Tiket telah digunakan.',
+            'discussion_unlocked' => true
+        ]);
+    }
+
     public function review(Request $request, Tryout $tryout): JsonResponse
     {
         $user = $request->user();
@@ -806,7 +848,13 @@ class UserTryoutController extends Controller
             ->get()
             ->keyBy('question_id');
 
-        $data = $questions->map(function ($question) use ($userAnswers, $tryout) {
+        $access = UserTryoutAccess::where('user_id', $user->id)
+            ->where('tryout_id', $tryout->id)
+            ->first();
+
+        $isUnlocked = !$tryout->is_free || ($access && $access->discussion_unlocked);
+
+        $data = $questions->map(function ($question) use ($userAnswers, $tryout, $isUnlocked) {
             $answer = $userAnswers->get($question->id);
 
             return [
@@ -821,9 +869,9 @@ class UserTryoutController extends Controller
                     'question_image' => $question->question_image,
                     'question_image_url' => $question->question_image_url,
                     
-                    'discussion' => $tryout->is_free ? '(Gunakan 1 Tiket untuk melihat semua pembahasan)' : $question->discussion,
-                    'discussion_image' => $tryout->is_free ? null : $question->discussion_image,
-                    'discussion_image_url' => $tryout->is_free ? null : $question->discussion_image_url,
+                    'discussion' => $isUnlocked ? $question->discussion : '(Gunakan 1 Tiket untuk melihat semua pembahasan)',
+                    'discussion_image' => $isUnlocked ? $question->discussion_image : null,
+                    'discussion_image_url' => $isUnlocked ? $question->discussion_image_url : null,
                     
                     'correct_answer' => $question->correct_answer,
                     'options' => $question->options->map(function ($option) {
