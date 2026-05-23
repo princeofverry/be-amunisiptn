@@ -44,6 +44,7 @@ class UserTryoutController extends Controller
             ->map(fn ($sessions) => $sessions->first());
 
         $tryouts = Tryout::with(['creator', 'tryoutSubtests.subtest'])
+            ->where('is_published', true)
             ->withCount('userAccesses')
             ->latest()
             ->get();
@@ -820,7 +821,7 @@ class UserTryoutController extends Controller
                     'question_image' => $question->question_image,
                     'question_image_url' => $question->question_image_url,
                     
-                    'discussion' => $tryout->is_free ? null : $question->discussion,
+                    'discussion' => $tryout->is_free ? '(Gunakan 1 Tiket untuk melihat semua pembahasan)' : $question->discussion,
                     'discussion_image' => $tryout->is_free ? null : $question->discussion_image,
                     'discussion_image_url' => $tryout->is_free ? null : $question->discussion_image_url,
                     

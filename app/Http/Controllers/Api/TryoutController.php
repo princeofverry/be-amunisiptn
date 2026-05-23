@@ -42,6 +42,10 @@ class TryoutController extends Controller
             $validated['image'] = $request->file('image')->store('tryout-images', 'public');
         }
 
+        if ($request->end_date) {
+            $validated['end_date'] = \Carbon\Carbon::parse($request->end_date)->startOfDay();
+        }
+
         $validated['created_by'] = $request->user()->id;
         $validated['is_free'] = $validated['is_free'] ?? false;
         $validated['use_irt'] = $validated['use_irt'] ?? true;
@@ -85,6 +89,10 @@ class TryoutController extends Controller
                 Storage::disk('public')->delete($tryout->image);
             }
             $validated['image'] = $request->file('image')->store('tryout-images', 'public');
+        }
+
+        if ($request->end_date) {
+            $validated['end_date'] = \Carbon\Carbon::parse($request->end_date)->startOfDay();
         }
 
         $validated['is_free'] = $validated['is_free'] ?? $tryout->is_free;
