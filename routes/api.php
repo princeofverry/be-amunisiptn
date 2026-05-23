@@ -105,6 +105,7 @@ Route::middleware(['auth:sanctum', 'admin'])
 
         Route::get('/stats', [AdminStatsController::class, 'index']);
         Route::get('/sales-report', [AdminSalesReportController::class, 'index']);
+        Route::get('/fee-to-report', [AdminSalesReportController::class, 'feeTryout']);
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('/audit-logs/modules', [AdminAuditLogController::class, 'modules']);
         Route::apiResource('ticket-redeem-codes', AdminTicketRedeemCodeController::class)

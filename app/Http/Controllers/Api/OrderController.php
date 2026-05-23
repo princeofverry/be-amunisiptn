@@ -18,6 +18,8 @@ use Midtrans\Transaction;
 
 class OrderController extends Controller
 {
+    private const PAYMENT_EXPIRY_MINUTES = 15;
+
     public function index(Request $request): JsonResponse
     {
         $orders = Order::with('items.package')
@@ -46,7 +48,7 @@ class OrderController extends Controller
             ->latest()
             ->first();
 
-        if ($existingOrder) {
+        if ($existingOrder && $this->canReusePendingOrder($existingOrder)) {
             $snapToken = $existingOrder->midtrans_order_id;
 
             if (! $snapToken) {
@@ -63,6 +65,10 @@ class OrderController extends Controller
                 'data' => $existingOrder->fresh()->load('items.package'),
                 'snap_token' => $snapToken,
             ]);
+        }
+
+        if ($existingOrder) {
+            $existingOrder->update(['status' => 'expired']);
         }
 
         $order = DB::transaction(function () use ($request, $package, $finalPrice) {
@@ -149,8 +155,9 @@ class OrderController extends Controller
         }
 
         if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-            $order->update(['status' => 'cancelled']);
-            return response()->json(['message' => 'Pembayaran dibatalkan/kedaluwarsa.', 'status' => 'cancelled']);
+            $status = $transactionStatus === 'expire' ? 'expired' : 'cancelled';
+            $order->update(['status' => $status]);
+            return response()->json(['message' => 'Pembayaran dibatalkan/kedaluwarsa.', 'status' => $status]);
         }
 
         return response()->json(['message' => 'Pembayaran belum selesai.', 'status' => $order->status]);
@@ -182,10 +189,43 @@ class OrderController extends Controller
                 'order_id' => $order->order_code,
                 'gross_amount' => $order->grand_total,
             ],
+            'expiry' => [
+                'start_time' => now()->format('Y-m-d H:i:s O'),
+                'unit' => 'minute',
+                'duration' => self::PAYMENT_EXPIRY_MINUTES,
+            ],
             'customer_details' => [
                 'first_name' => $request->user()->name ?? 'Siswa',
                 'email' => $request->user()->email,
             ],
         ]);
+    }
+
+    private function canReusePendingOrder(Order $order): bool
+    {
+        if ($order->created_at && $order->created_at->lte(now()->subMinutes(self::PAYMENT_EXPIRY_MINUTES))) {
+            return false;
+        }
+
+        if (! $order->midtrans_order_id) {
+            return true;
+        }
+
+        Config::$serverKey = config('midtrans.server_key');
+        Config::$isProduction = config('midtrans.is_production');
+
+        try {
+            $midtransStatus = Transaction::status($order->order_code);
+        } catch (\Exception) {
+            return true;
+        }
+
+        $transactionStatus = $midtransStatus->transaction_status ?? '';
+
+        if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
+            return false;
+        }
+
+        return true;
     }
 }

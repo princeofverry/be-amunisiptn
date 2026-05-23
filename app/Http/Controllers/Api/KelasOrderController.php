@@ -18,6 +18,8 @@ use Midtrans\Transaction;
 
 class KelasOrderController extends Controller
 {
+    private const PAYMENT_EXPIRY_MINUTES = 15;
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -59,6 +61,11 @@ class KelasOrderController extends Controller
             'transaction_details' => [
                 'order_id'     => $order->order_code,
                 'gross_amount' => $order->grand_total,
+            ],
+            'expiry' => [
+                'start_time' => now()->format('Y-m-d H:i:s O'),
+                'unit' => 'minute',
+                'duration' => self::PAYMENT_EXPIRY_MINUTES,
             ],
             'customer_details' => [
                 'first_name' => $request->user()->name ?? 'Siswa',
@@ -120,7 +127,7 @@ class KelasOrderController extends Controller
     {
         abort_unless($kelasOrder->user_id === $request->user()->id, 403);
 
-        if (in_array($kelasOrder->status, ['paid', 'cancelled'])) {
+        if (in_array($kelasOrder->status, ['paid', 'cancelled', 'expired'])) {
             return response()->json([
                 'message' => 'Order sudah diproses.',
                 'status'  => $kelasOrder->status,
@@ -147,8 +154,9 @@ class KelasOrderController extends Controller
         }
 
         if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-            $kelasOrder->update(['status' => 'cancelled']);
-            return response()->json(['message' => 'Pembayaran dibatalkan/kedaluwarsa.', 'status' => 'cancelled']);
+            $status = $transactionStatus === 'expire' ? 'expired' : 'cancelled';
+            $kelasOrder->update(['status' => $status]);
+            return response()->json(['message' => 'Pembayaran dibatalkan/kedaluwarsa.', 'status' => $status]);
         }
 
         return response()->json(['message' => 'Pembayaran belum selesai.', 'status' => $kelasOrder->status]);
