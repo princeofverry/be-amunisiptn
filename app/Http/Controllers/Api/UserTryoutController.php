@@ -43,7 +43,12 @@ class UserTryoutController extends Controller
             ->groupBy('tryout_id')
             ->map(fn ($sessions) => $sessions->first());
 
-        $tryouts = Tryout::with(['creator', 'tryoutSubtests.subtest'])
+        $tryouts = Tryout::with([
+                'creator',
+                'tryoutSubtests.subtest' => fn ($query) => $query->withCount([
+                    'questions' => fn ($questionQuery) => $questionQuery->where('is_active', true),
+                ]),
+            ])
             ->where('is_published', true)
             ->withCount('userAccesses')
             ->latest()
@@ -171,19 +176,42 @@ class UserTryoutController extends Controller
             ->get()
             ->pluck('attempt_count', 'tryout_id');
 
-        $tryouts = Tryout::with(['tryoutSubtests.subtest'])
+        $tryouts = Tryout::with([
+                'tryoutSubtests.subtest' => fn ($query) => $query->withCount([
+                    'questions' => fn ($questionQuery) => $questionQuery->where('is_active', true),
+                ]),
+            ])
             ->whereIn('id', $tryoutIds)
             ->where('is_published', true)
             ->get();
 
-        $tryouts->each(function ($tryout) use ($user, $sessionsByTryout, $sessionCountsByTryout) {
+        $finishedSessionsByTryout = TryoutSession::with('answers')
+            ->where('user_id', $user->id)
+            ->whereIn('tryout_id', $tryoutIds)
+            ->where('status', 'finished')
+            ->orderByDesc('finished_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('tryout_id');
+
+        $tryouts->each(function ($tryout) use ($user, $sessionsByTryout, $sessionCountsByTryout, $finishedSessionsByTryout) {
             $session = $sessionsByTryout->get($tryout->id);
+            $subtestIds = $tryout->tryoutSubtests->pluck('subtest_id');
+            $totalQuestions = Question::whereIn('subtest_id', $subtestIds)
+                ->where('is_active', true)
+                ->count();
 
             $tryout->setAttribute('user_is_enrolled', true);
             $tryout->setAttribute('user_attempt_count', (int) ($sessionCountsByTryout->get($tryout->id) ?? 0));
             $tryout->setAttribute('user_session_status', $session?->status ?? 'not_started');
             $tryout->setAttribute('user_started_at', $session?->started_at);
             $tryout->setAttribute('user_finished_at', $session?->finished_at);
+            $tryout->setAttribute(
+                'user_attempts',
+                ($finishedSessionsByTryout->get($tryout->id) ?? collect())
+                    ->map(fn ($attempt) => $this->formatAttemptHistory($tryout, $attempt, $totalQuestions))
+                    ->values()
+            );
 
             $shuffledSubtests = $tryout->tryoutSubtests->sortBy(function ($subtest) use ($user) {
                 return md5($user->id . $subtest->id);
@@ -291,7 +319,7 @@ class UserTryoutController extends Controller
             : null;
 
         $remainingSeconds = $endTime
-            ? max(now()->diffInSeconds($endTime, false), 0)
+            ? max((int) ceil(now()->diffInSeconds($endTime, false)), 0)
             : 0;
 
         if ($remainingSeconds <= 0 && $subtestSession->status === 'in_progress') {
@@ -346,7 +374,7 @@ class UserTryoutController extends Controller
             : null;
 
         $remainingSeconds = $endTime
-            ? max(now()->diffInSeconds($endTime, false), 0)
+            ? max((int) ceil(now()->diffInSeconds($endTime, false)), 0)
             : 0;
 
         if ($remainingSeconds <= 0 && $subtestSession->status === 'in_progress') {
@@ -544,14 +572,18 @@ class UserTryoutController extends Controller
     {
         $user = $request->user();
 
-        $session = TryoutSession::with(['answers'])
+        $sessionQuery = TryoutSession::with(['answers'])
             ->where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
-            ->where('status', 'finished')
-            ->latest('created_at')
-            ->first();
+            ->where('status', 'finished');
 
-        if (! $session) {
+        if ($request->filled('attempt')) {
+            $sessionQuery->where('attempt_number', (int) $request->query('attempt'));
+        }
+
+        $session = $sessionQuery->latest('created_at')->first();
+
+        if (! $session && ! $request->filled('attempt')) {
             $session = TryoutSession::with(['answers'])
                 ->where('user_id', $user->id)
                 ->where('tryout_id', $tryout->id)
@@ -894,5 +926,35 @@ class UserTryoutController extends Controller
                 'review' => $data,
             ],
         ]);
+    }
+
+    private function formatAttemptHistory(Tryout $tryout, TryoutSession $session, int $totalQuestions): array
+    {
+        $correct = $session->answers->where('is_correct', true)->count();
+        $answered = $session->answers->whereNotNull('answer')->count();
+        $wrong = $session->answers->where('is_correct', false)->count();
+        $accuracy = $totalQuestions > 0 ? ($correct / $totalQuestions) * 100 : 0;
+        $finalScore = $totalQuestions > 0 ? ($correct / $totalQuestions) * 1000 : 0;
+
+        return [
+            'session_id' => $session->id,
+            'tryout_id' => $tryout->id,
+            'attempt_number' => $session->attempt_number,
+            'status' => $session->status,
+            'started_at' => $session->started_at,
+            'finished_at' => $session->finished_at,
+            'score' => [
+                'raw_score' => $correct,
+                'final_score' => round($finalScore, 2),
+                'accuracy' => round($accuracy, 2),
+            ],
+            'summary' => [
+                'total_questions' => $totalQuestions,
+                'answered' => $answered,
+                'correct' => $correct,
+                'wrong' => $wrong,
+                'unanswered' => max($totalQuestions - $answered, 0),
+            ],
+        ];
     }
 }
