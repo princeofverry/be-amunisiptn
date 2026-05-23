@@ -32,14 +32,38 @@ class OrderController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        // Validasi hanya butuh package_id, tidak perlu tanya metode pembayaran lagi
         $validated = $request->validate([
             'package_id' => ['required', 'string', 'exists:packages,id'],
         ]);
 
         $package = Package::where('is_active', true)->findOrFail($validated['package_id']);
-
         $finalPrice = $package->discount_price ?? $package->price;
+
+        $existingOrder = Order::with('items.package')
+            ->where('user_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->whereHas('items', fn ($query) => $query->where('package_id', $package->id))
+            ->latest()
+            ->first();
+
+        if ($existingOrder) {
+            $snapToken = $existingOrder->midtrans_order_id;
+
+            if (! $snapToken) {
+                try {
+                    $snapToken = $this->createSnapToken($existingOrder, $request);
+                    $existingOrder->update(['midtrans_order_id' => $snapToken]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Gagal membuka ulang pembayaran. Silakan cek status pembayaran di riwayat.'], 500);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Lanjutkan pembayaran sebelumnya',
+                'data' => $existingOrder->fresh()->load('items.package'),
+                'snap_token' => $snapToken,
+            ]);
+        }
 
         $order = DB::transaction(function () use ($request, $package, $finalPrice) {
             $order = Order::create([
@@ -63,25 +87,9 @@ class OrderController extends Controller
             return $order;
         });
 
-        // Setup Midtrans
-        Config::$serverKey = config('midtrans.server_key');
-        Config::$isProduction = config('midtrans.is_production');
-        Config::$isSanitized = config('midtrans.is_sanitized');
-        Config::$is3ds = config('midtrans.is_3ds');
-
-        $params = [
-            'transaction_details' => [
-                'order_id' => $order->order_code,
-                'gross_amount' => $order->grand_total,
-            ],
-            'customer_details' => [
-                'first_name' => $request->user()->name ?? 'Siswa',
-                'email' => $request->user()->email,
-            ],
-        ];
-
         try {
-            $snapToken = Snap::getSnapToken($params);
+            $snapToken = $this->createSnapToken($order, $request);
+            $order->update(['midtrans_order_id' => $snapToken]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Gagal terhubung ke server pembayaran.'], 500);
         }
@@ -160,5 +168,24 @@ class OrderController extends Controller
         AuditLogger::log('Order', 'cancel', "Order dibatalkan: #{$order->order_code}", $request->user(), $order);
 
         return response()->json(['message' => 'Order berhasil dibatalkan.']);
+    }
+
+    private function createSnapToken(Order $order, Request $request): string
+    {
+        Config::$serverKey = config('midtrans.server_key');
+        Config::$isProduction = config('midtrans.is_production');
+        Config::$isSanitized = config('midtrans.is_sanitized');
+        Config::$is3ds = config('midtrans.is_3ds');
+
+        return Snap::getSnapToken([
+            'transaction_details' => [
+                'order_id' => $order->order_code,
+                'gross_amount' => $order->grand_total,
+            ],
+            'customer_details' => [
+                'first_name' => $request->user()->name ?? 'Siswa',
+                'email' => $request->user()->email,
+            ],
+        ]);
     }
 }

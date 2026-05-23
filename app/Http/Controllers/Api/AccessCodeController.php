@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccessCode;
+use App\Models\TicketRedeemCode;
+use App\Models\TicketRedeemRedemption;
+use App\Models\User;
 use App\Models\UserTryoutAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,14 +28,20 @@ class AccessCodeController extends Controller
             ->first();
 
         if (! $accessCode) {
-            return response()->json([
-                'message' => 'Kode akses tidak ditemukan',
-            ], 404);
+            return $this->redeemTicketCode($request, $validated['code']);
         }
         
-        if (! $accessCode->isUsable()) {
+        if (! $accessCode->is_active || $accessCode->isExpired()) {
             return response()->json([
                 'message' => 'Kode akses tidak bisa digunakan',
+                'error_code' => 'inactive',
+            ], 422);
+        }
+
+        if ($accessCode->used_count >= $accessCode->max_usage) {
+            return response()->json([
+                'message' => 'Kuota voucher sudah habis',
+                'error_code' => 'quota_exhausted',
             ], 422);
         }
 
@@ -62,6 +71,96 @@ class AccessCodeController extends Controller
             'data' => [
                 'tryout_id' => $accessCode->tryout_id,
                 'tryout_title' => $accessCode->tryout->title,
+            ],
+        ]);
+    }
+
+    private function redeemTicketCode(Request $request, string $code): JsonResponse
+    {
+        $user = $request->user();
+
+        $redeemCode = TicketRedeemCode::where('code', strtoupper($code))->first();
+
+        if (! $redeemCode) {
+            return response()->json([
+                'message' => 'Kode akses tidak ditemukan',
+                'error_code' => 'not_found',
+            ], 404);
+        }
+
+        if (! $redeemCode->is_active || $redeemCode->isExpired()) {
+            return response()->json([
+                'message' => 'Kode redeem tidak bisa digunakan',
+                'error_code' => 'inactive',
+            ], 422);
+        }
+
+        if (TicketRedeemRedemption::where('ticket_redeem_code_id', $redeemCode->id)
+            ->where('user_id', $user->id)
+            ->exists()) {
+            return response()->json([
+                'message' => 'Voucher sudah terpakai',
+                'error_code' => 'already_used',
+            ], 422);
+        }
+
+        if (! $redeemCode->hasQuota()) {
+            return response()->json([
+                'message' => 'Kuota voucher sudah habis',
+                'error_code' => 'quota_exhausted',
+            ], 422);
+        }
+
+        $ticketBalance = DB::transaction(function () use ($user, $redeemCode) {
+            $lockedCode = TicketRedeemCode::whereKey($redeemCode->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! $lockedCode->hasQuota()) {
+                return null;
+            }
+
+            if (TicketRedeemRedemption::where('ticket_redeem_code_id', $lockedCode->id)
+                ->where('user_id', $user->id)
+                ->exists()) {
+                return false;
+            }
+
+            $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $lockedUser->increment('ticket_balance', $lockedCode->ticket_amount);
+
+            TicketRedeemRedemption::create([
+                'ticket_redeem_code_id' => $lockedCode->id,
+                'user_id' => $lockedUser->id,
+                'ticket_amount' => $lockedCode->ticket_amount,
+                'redeemed_at' => now(),
+            ]);
+
+            $lockedCode->increment('used_count');
+
+            return $lockedUser->fresh()->ticket_balance;
+        });
+
+        if ($ticketBalance === null) {
+            return response()->json([
+                'message' => 'Kuota voucher sudah habis',
+                'error_code' => 'quota_exhausted',
+            ], 422);
+        }
+
+        if ($ticketBalance === false) {
+            return response()->json([
+                'message' => 'Voucher sudah terpakai',
+                'error_code' => 'already_used',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Voucher berhasil digunakan',
+            'data' => [
+                'type' => 'ticket',
+                'ticket_amount' => $redeemCode->ticket_amount,
+                'ticket_balance' => $ticketBalance,
             ],
         ]);
     }

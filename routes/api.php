@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AdminStatsController;
 use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminSalesReportController;
+use App\Http\Controllers\Api\AdminTicketRedeemCodeController;
 use App\Http\Controllers\Api\BulkImportQuestionController;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +107,8 @@ Route::middleware(['auth:sanctum', 'admin'])
         Route::get('/sales-report', [AdminSalesReportController::class, 'index']);
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('/audit-logs/modules', [AdminAuditLogController::class, 'modules']);
+        Route::apiResource('ticket-redeem-codes', AdminTicketRedeemCodeController::class)
+            ->except(['show']);
         Route::get('/users', [AdminUserController::class, 'index']);
         Route::get('/users/export', [AdminUserController::class, 'export']);
         Route::get('/users/{user}', [AdminUserController::class, 'show']);
