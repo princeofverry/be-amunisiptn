@@ -18,6 +18,7 @@ class QuestionController extends Controller
     public function index(Subtest $subtest): JsonResponse
     {
         $questions = Question::with('options')
+            ->withCount('userAnswers')
             ->where('subtest_id', $subtest->id)
             ->orderBy('order_no')
             ->orderBy('id')
@@ -109,7 +110,7 @@ class QuestionController extends Controller
             return response()->json(['message' => 'Soal tidak ditemukan pada subtest ini.'], 404);
         }
 
-        $question->load('options');
+        $question->load('options')->loadCount('userAnswers');
 
         return response()->json([
             'data' => $question,
@@ -215,16 +216,21 @@ class QuestionController extends Controller
             return response()->json(['message' => 'Soal tidak ditemukan pada subtest ini.'], 404);
         }
 
-        if ($question->question_image) Storage::disk('public')->delete($question->question_image);
-        if ($question->discussion_image) Storage::disk('public')->delete($question->discussion_image);
-        foreach ($question->options as $opt) {
-            if ($opt->image) Storage::disk('public')->delete($opt->image);
+        $usageCount = $question->userAnswers()->count();
+
+        if ($usageCount > 0) {
+            return response()->json([
+                'message' => "Soal tidak dapat dihapus karena sudah terhubung ke {$usageCount} riwayat jawaban peserta. Nonaktifkan soal jika tidak ingin digunakan lagi.",
+                'data' => [
+                    'user_answers_count' => $usageCount,
+                ],
+            ], 422);
         }
 
         $question->delete();
 
         return response()->json([
-            'message' => 'Soal berhasil dihapus beserta seluruh gambarnya',
+            'message' => 'Soal berhasil dihapus',
         ]);
     }
 }
