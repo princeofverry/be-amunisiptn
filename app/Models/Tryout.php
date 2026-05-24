@@ -20,6 +20,7 @@ class Tryout extends Model
         'category',
         'is_free',
         'use_irt',
+        'randomize_options',
         'is_published',
         'created_by',
     ];
@@ -28,6 +29,7 @@ class Tryout extends Model
         'is_published' => 'boolean',
         'is_free' => 'boolean',
         'use_irt' => 'boolean',
+        'randomize_options' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
     ];

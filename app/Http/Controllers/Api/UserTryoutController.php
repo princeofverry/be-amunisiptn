@@ -417,7 +417,7 @@ class UserTryoutController extends Controller
         $questions = $questionsData->map(function ($question, $index) use ($userAnswers, $session, $tryout) {
             $myAnswer = $userAnswers[$question->id] ?? null;
 
-            $options = $question->question_type === 'multiple_choice' && $question->randomize_options
+            $options = $question->question_type === 'multiple_choice' && $tryout->randomize_options
                 ? $question->options->sortBy(function ($option) use ($session, $question) {
                     return md5($session->id . $question->id . $option->id);
                 })->values()
@@ -908,7 +908,7 @@ class UserTryoutController extends Controller
 
         $data = $questions->map(function ($question) use ($userAnswers, $tryout, $isUnlocked, $session) {
             $answer = $userAnswers->get($question->id);
-            $options = $question->question_type === 'multiple_choice' && $question->randomize_options
+            $options = $question->question_type === 'multiple_choice' && $tryout->randomize_options
                 ? $question->options->sortBy(function ($option) use ($session, $question) {
                     return md5($session->id . $question->id . $option->id);
                 })->values()

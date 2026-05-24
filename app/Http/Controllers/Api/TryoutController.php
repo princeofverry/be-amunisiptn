@@ -35,6 +35,7 @@ class TryoutController extends Controller
             'category' => ['nullable', 'string', Rule::in(['UTBK', 'UM'])],
             'is_free' => ['nullable', 'boolean'],
             'use_irt' => ['nullable', 'boolean'],
+            'randomize_options' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -50,6 +51,7 @@ class TryoutController extends Controller
         $validated['category'] = $validated['category'] ?? 'UTBK';
         $validated['is_free'] = $validated['is_free'] ?? false;
         $validated['use_irt'] = $validated['use_irt'] ?? true;
+        $validated['randomize_options'] = $validated['randomize_options'] ?? false;
         $validated['is_published'] = $validated['is_published'] ?? false;
 
         $tryout = Tryout::create($validated);
@@ -82,6 +84,7 @@ class TryoutController extends Controller
             'category' => ['nullable', 'string', Rule::in(['UTBK', 'UM'])],
             'is_free' => ['nullable', 'boolean'],
             'use_irt' => ['nullable', 'boolean'],
+            'randomize_options' => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
         ]);
 
@@ -98,6 +101,7 @@ class TryoutController extends Controller
 
         $validated['is_free'] = $validated['is_free'] ?? $tryout->is_free;
         $validated['use_irt'] = $validated['use_irt'] ?? $tryout->use_irt;
+        $validated['randomize_options'] = $validated['randomize_options'] ?? $tryout->randomize_options;
         $validated['is_published'] = $validated['is_published'] ?? $tryout->is_published;
         $validated['category'] = $validated['category'] ?? $tryout->category ?? 'UTBK';
 

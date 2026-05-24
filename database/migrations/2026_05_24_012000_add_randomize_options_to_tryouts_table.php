@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('questions', function (Blueprint $table) {
-            $table->string('question_type', 32)->default('multiple_choice')->after('subtest_id');
+        Schema::table('tryouts', function (Blueprint $table) {
+            $table->boolean('randomize_options')->default(false)->after('use_irt');
         });
     }
 
     public function down(): void
     {
-        Schema::table('questions', function (Blueprint $table) {
-            $table->dropColumn('question_type');
+        Schema::table('tryouts', function (Blueprint $table) {
+            $table->dropColumn('randomize_options');
         });
     }
 };

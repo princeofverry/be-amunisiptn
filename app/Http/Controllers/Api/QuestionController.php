@@ -47,7 +47,6 @@ class QuestionController extends Controller
             'discussion' => ['nullable', 'string'],
             'discussion_image' => ['nullable', 'image', 'max:2048'],
             'correct_answer' => ['nullable', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
-            'randomize_options' => ['nullable', 'boolean'],
             'order_no' => ['required', 'integer', 'min:1'],
             'is_active' => ['nullable', 'boolean'],
             
@@ -92,9 +91,6 @@ class QuestionController extends Controller
                 'discussion' => RichTextSanitizer::sanitize($validated['discussion'] ?? null),
                 'discussion_image' => $dImage,
                 'correct_answer' => $validated['question_type'] === 'essay' ? null : $validated['correct_answer'],
-                'randomize_options' => $validated['question_type'] === 'multiple_choice'
-                    ? ($validated['randomize_options'] ?? false)
-                    : false,
                 'order_no' => $validated['order_no'],
                 'is_active' => $validated['is_active'] ?? true,
             ]);
@@ -149,7 +145,6 @@ class QuestionController extends Controller
             'discussion' => ['nullable', 'string'],
             'discussion_image' => ['nullable', 'image', 'max:2048'],
             'correct_answer' => ['nullable', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
-            'randomize_options' => ['nullable', 'boolean'],
             'order_no' => ['required', 'integer', 'min:1'],
             'is_active' => ['required', 'boolean'],
             
@@ -211,9 +206,6 @@ class QuestionController extends Controller
                 'discussion' => RichTextSanitizer::sanitize($validated['discussion'] ?? null),
                 'discussion_image' => $dImage,
                 'correct_answer' => $validated['question_type'] === 'essay' ? null : $validated['correct_answer'],
-                'randomize_options' => $validated['question_type'] === 'multiple_choice'
-                    ? ($validated['randomize_options'] ?? false)
-                    : false,
                 'order_no' => $validated['order_no'],
                 'is_active' => $validated['is_active'],
             ]);

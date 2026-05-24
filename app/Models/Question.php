@@ -18,14 +18,12 @@ class Question extends Model
         'discussion',
         'discussion_image',
         'correct_answer',
-        'randomize_options',
         'order_no',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'randomize_options' => 'boolean',
     ];
 
     protected $appends = [
