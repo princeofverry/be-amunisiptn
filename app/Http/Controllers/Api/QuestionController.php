@@ -41,27 +41,42 @@ class QuestionController extends Controller
         }
 
         $validated = $request->validate([
+            'question_type' => ['nullable', 'string', Rule::in(['multiple_choice', 'essay'])],
             'question_text' => ['nullable', 'string'],
             'question_image' => ['nullable', 'image', 'max:2048'],
             'discussion' => ['nullable', 'string'],
             'discussion_image' => ['nullable', 'image', 'max:2048'],
-            'correct_answer' => ['required', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
+            'correct_answer' => ['nullable', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
+            'randomize_options' => ['nullable', 'boolean'],
             'order_no' => ['required', 'integer', 'min:1'],
             'is_active' => ['nullable', 'boolean'],
             
-            'options' => ['required', 'array', 'min:2'],
+            'options' => ['nullable', 'array'],
             'options.*.option_key' => ['required', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
             'options.*.option_text' => ['nullable', 'string'],
             'options.*.image' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        $optionKeys = collect($validated['options'])->pluck('option_key');
-        if ($optionKeys->count() !== $optionKeys->unique()->count()) {
-            return response()->json(['message' => 'Setiap pilihan jawaban harus memiliki huruf yang berbeda (A, B, C, D, atau E).'], 422);
-        }
+        $validated['question_type'] = $validated['question_type'] ?? 'multiple_choice';
+        $validated['options'] = $validated['options'] ?? [];
 
-        if (! $optionKeys->contains($validated['correct_answer'])) {
-            return response()->json(['message' => 'Jawaban benar harus sesuai dengan salah satu pilihan jawaban.'], 422);
+        if ($validated['question_type'] === 'multiple_choice') {
+            if (count($validated['options']) < 2) {
+                return response()->json(['message' => 'Minimal 2 opsi jawaban harus diisi.'], 422);
+            }
+
+            if (empty($validated['correct_answer'])) {
+                return response()->json(['message' => 'Jawaban benar wajib diisi untuk soal pilihan ganda.'], 422);
+            }
+
+            $optionKeys = collect($validated['options'])->pluck('option_key');
+            if ($optionKeys->count() !== $optionKeys->unique()->count()) {
+                return response()->json(['message' => 'Setiap pilihan jawaban harus memiliki huruf yang berbeda (A, B, C, D, atau E).'], 422);
+            }
+
+            if (! $optionKeys->contains($validated['correct_answer'])) {
+                return response()->json(['message' => 'Jawaban benar harus sesuai dengan salah satu pilihan jawaban.'], 422);
+            }
         }
 
         $question = DB::transaction(function () use ($request, $validated, $subtest) {
@@ -71,17 +86,21 @@ class QuestionController extends Controller
 
             $question = Question::create([
                 'subtest_id' => $subtest->id,
+                'question_type' => $validated['question_type'],
                 'question_text' => RichTextSanitizer::sanitize($validated['question_text'] ?? null),
                 'question_image' => $qImage,
                 'discussion' => RichTextSanitizer::sanitize($validated['discussion'] ?? null),
                 'discussion_image' => $dImage,
-                'correct_answer' => $validated['correct_answer'],
+                'correct_answer' => $validated['question_type'] === 'essay' ? null : $validated['correct_answer'],
+                'randomize_options' => $validated['question_type'] === 'multiple_choice'
+                    ? ($validated['randomize_options'] ?? false)
+                    : false,
                 'order_no' => $validated['order_no'],
                 'is_active' => $validated['is_active'] ?? true,
             ]);
 
             // Upload Gambar di Opsi (Jika Ada)
-            foreach ($validated['options'] as $index => $option) {
+            foreach ($validated['question_type'] === 'multiple_choice' ? $validated['options'] : [] as $index => $option) {
                 $optImage = null;
                 if ($request->hasFile("options.{$index}.image")) {
                     $optImage = $request->file("options.{$index}.image")->store('option-images', 'public');
@@ -124,15 +143,17 @@ class QuestionController extends Controller
         }
 
         $validated = $request->validate([
+            'question_type' => ['nullable', 'string', Rule::in(['multiple_choice', 'essay'])],
             'question_text' => ['nullable', 'string'],
             'question_image' => ['nullable', 'image', 'max:2048'],
             'discussion' => ['nullable', 'string'],
             'discussion_image' => ['nullable', 'image', 'max:2048'],
-            'correct_answer' => ['required', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
+            'correct_answer' => ['nullable', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
+            'randomize_options' => ['nullable', 'boolean'],
             'order_no' => ['required', 'integer', 'min:1'],
             'is_active' => ['required', 'boolean'],
             
-            'options' => ['required', 'array', 'min:2'],
+            'options' => ['nullable', 'array'],
             'options.*.option_key' => ['required', 'string', Rule::in(['A', 'B', 'C', 'D', 'E'])],
             'options.*.option_text' => ['nullable', 'string'],
             'options.*.image' => ['nullable', 'image', 'max:2048'],
@@ -140,13 +161,26 @@ class QuestionController extends Controller
             'delete_discussion_image' => ['nullable', 'boolean'],
         ]);
 
-        $optionKeys = collect($validated['options'])->pluck('option_key');
-        if ($optionKeys->count() !== $optionKeys->unique()->count()) {
-            return response()->json(['message' => 'Setiap pilihan jawaban harus memiliki huruf yang berbeda (A, B, C, D, atau E).'], 422);
-        }
+        $validated['question_type'] = $validated['question_type'] ?? 'multiple_choice';
+        $validated['options'] = $validated['options'] ?? [];
 
-        if (! $optionKeys->contains($validated['correct_answer'])) {
-            return response()->json(['message' => 'Jawaban benar harus sesuai dengan salah satu pilihan jawaban.'], 422);
+        if ($validated['question_type'] === 'multiple_choice') {
+            if (count($validated['options']) < 2) {
+                return response()->json(['message' => 'Minimal 2 opsi jawaban harus diisi.'], 422);
+            }
+
+            if (empty($validated['correct_answer'])) {
+                return response()->json(['message' => 'Jawaban benar wajib diisi untuk soal pilihan ganda.'], 422);
+            }
+
+            $optionKeys = collect($validated['options'])->pluck('option_key');
+            if ($optionKeys->count() !== $optionKeys->unique()->count()) {
+                return response()->json(['message' => 'Setiap pilihan jawaban harus memiliki huruf yang berbeda (A, B, C, D, atau E).'], 422);
+            }
+
+            if (! $optionKeys->contains($validated['correct_answer'])) {
+                return response()->json(['message' => 'Jawaban benar harus sesuai dengan salah satu pilihan jawaban.'], 422);
+            }
         }
 
         $question = DB::transaction(function () use ($request, $validated, $question) {
@@ -171,11 +205,15 @@ class QuestionController extends Controller
             }
 
             $question->update([
+                'question_type' => $validated['question_type'],
                 'question_text' => RichTextSanitizer::sanitize($validated['question_text'] ?? null),
                 'question_image' => $qImage,
                 'discussion' => RichTextSanitizer::sanitize($validated['discussion'] ?? null),
                 'discussion_image' => $dImage,
-                'correct_answer' => $validated['correct_answer'],
+                'correct_answer' => $validated['question_type'] === 'essay' ? null : $validated['correct_answer'],
+                'randomize_options' => $validated['question_type'] === 'multiple_choice'
+                    ? ($validated['randomize_options'] ?? false)
+                    : false,
                 'order_no' => $validated['order_no'],
                 'is_active' => $validated['is_active'],
             ]);
@@ -183,7 +221,7 @@ class QuestionController extends Controller
             $oldOptions = $question->options->keyBy('option_key');
             $question->options()->delete();
 
-            foreach ($validated['options'] as $index => $option) {
+            foreach ($validated['question_type'] === 'multiple_choice' ? $validated['options'] : [] as $index => $option) {
                 $optKey = $option['option_key'];
                 $oldImage = $oldOptions->has($optKey) ? $oldOptions[$optKey]->image : null;
                 $optImage = $oldImage;

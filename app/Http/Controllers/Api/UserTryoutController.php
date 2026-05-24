@@ -10,6 +10,7 @@ use App\Models\TryoutSubtest;
 use App\Models\TryoutSubtestSession;
 use App\Models\UserAnswer;
 use App\Models\UserTryoutAccess;
+use App\Support\RichTextSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -413,20 +414,23 @@ class UserTryoutController extends Controller
         $userAnswers = UserAnswer::where('tryout_session_id', $session->id)
             ->pluck('answer', 'question_id');
 
-        $questions = $questionsData->map(function ($question, $index) use ($userAnswers, $session) {
+        $questions = $questionsData->map(function ($question, $index) use ($userAnswers, $session, $tryout) {
             $myAnswer = $userAnswers[$question->id] ?? null;
 
-            $shuffledOptions = $question->options->sortBy(function ($option) use ($session, $question) {
-                return md5($session->id . $question->id . $option->id);
-            })->values();
+            $options = $question->question_type === 'multiple_choice' && $question->randomize_options
+                ? $question->options->sortBy(function ($option) use ($session, $question) {
+                    return md5($session->id . $question->id . $option->id);
+                })->values()
+                : $question->options->values();
 
             return [
                 'id' => $question->id,
+                'question_type' => $question->question_type,
                 'question_text' => $question->question_text,
                 'question_image' => $question->question_image,
                 'question_image_url' => $question->question_image_url,
                 'order_no' => $index + 1,
-                'options' => $shuffledOptions->map(function ($option) {
+                'options' => $options->map(function ($option) {
                     return [
                         'id' => $option->id,
                         'option_key' => $option->option_key,
@@ -471,8 +475,14 @@ class UserTryoutController extends Controller
         }
 
         $validated = $request->validate([
-            'answer' => ['nullable', 'string', 'in:A,B,C,D,E'],
+            'answer' => ['nullable', 'string'],
         ]);
+
+        if ($question->question_type === 'multiple_choice') {
+            Validator::make($validated, [
+                'answer' => ['nullable', 'string', 'in:A,B,C,D,E'],
+            ])->validate();
+        }
 
         $session = TryoutSession::where('user_id', $user->id)
             ->where('tryout_id', $tryout->id)
@@ -485,9 +495,15 @@ class UserTryoutController extends Controller
         }
 
         $answer = $validated['answer'] ?? null;
+        if ($question->question_type === 'essay' && $answer !== null) {
+            $answer = RichTextSanitizer::sanitize($answer);
+        }
 
-        if ($answer) {
+        if ($answer && trim(strip_tags($answer)) !== '') {
             $correctAnswer = $question->correct_answer ?? null;
+            $isCorrect = $question->question_type === 'essay'
+                ? true
+                : $answer === $correctAnswer;
 
             UserAnswer::updateOrCreate(
                 [
@@ -496,7 +512,7 @@ class UserTryoutController extends Controller
                 ],
                 [
                     'answer' => $answer,
-                    'is_correct' => $answer === $correctAnswer,
+                    'is_correct' => $isCorrect,
                     'answered_at' => now(),
                 ]
             );
@@ -890,8 +906,13 @@ class UserTryoutController extends Controller
 
         $isUnlocked = !$tryout->is_free || ($access && $access->discussion_unlocked);
 
-        $data = $questions->map(function ($question) use ($userAnswers, $tryout, $isUnlocked) {
+        $data = $questions->map(function ($question) use ($userAnswers, $tryout, $isUnlocked, $session) {
             $answer = $userAnswers->get($question->id);
+            $options = $question->question_type === 'multiple_choice' && $question->randomize_options
+                ? $question->options->sortBy(function ($option) use ($session, $question) {
+                    return md5($session->id . $question->id . $option->id);
+                })->values()
+                : $question->options->values();
 
             return [
                 'question_id' => $question->id,
@@ -901,6 +922,7 @@ class UserTryoutController extends Controller
                 ],
                 'question' => [
                     'id' => $question->id,
+                    'question_type' => $question->question_type,
                     'question_text' => $question->question_text,
                     'question_image' => $question->question_image,
                     'question_image_url' => $question->question_image_url,
@@ -910,7 +932,7 @@ class UserTryoutController extends Controller
                     'discussion_image_url' => $isUnlocked ? $question->discussion_image_url : null,
                     
                     'correct_answer' => $question->correct_answer,
-                    'options' => $question->options->map(function ($option) {
+                    'options' => $options->map(function ($option) {
                         return [
                             'id' => $option->id,
                             'option_key' => $option->option_key,

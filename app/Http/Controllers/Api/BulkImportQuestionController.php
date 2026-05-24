@@ -163,24 +163,29 @@ class BulkImportQuestionController extends Controller
             $answerE       = $cells[6] ?? '';
             $correctAnswer = strtoupper(strip_tags($cells[7] ?? ''));
             $discussion    = $cells[8] ?? '';
+            $questionType  = trim($correctAnswer) === '' ? 'essay' : 'multiple_choice';
 
             // Validasi teks
             $rowErrors = [];
             if (trim(strip_tags($questionText)) === '') {
                 $rowErrors[] = 'Soal tidak boleh kosong.';
             }
-            if (
-                trim(strip_tags($answerA)) === '' ||
-                trim(strip_tags($answerB)) === '' ||
-                trim(strip_tags($answerC)) === '' ||
-                trim(strip_tags($answerD)) === '' ||
-                trim(strip_tags($answerE)) === ''
-            ) {
-                $rowErrors[] = 'Semua jawaban A-E harus diisi.';
+
+            if ($questionType === 'multiple_choice') {
+                if (
+                    trim(strip_tags($answerA)) === '' ||
+                    trim(strip_tags($answerB)) === '' ||
+                    trim(strip_tags($answerC)) === '' ||
+                    trim(strip_tags($answerD)) === '' ||
+                    trim(strip_tags($answerE)) === ''
+                ) {
+                    $rowErrors[] = 'Semua jawaban A-E harus diisi untuk soal pilihan ganda.';
+                }
+                if (!in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E'])) {
+                    $rowErrors[] = "Kunci jawaban '{$correctAnswer}' tidak valid.";
+                }
             }
-            if (!in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E'])) {
-                $rowErrors[] = "Kunci jawaban '{$correctAnswer}' tidak valid.";
-            }
+
             if (!empty($rowErrors)) {
                 $errors[] = "Baris {$lineNo}: " . implode(' ', $rowErrors);
                 $skipped++;
@@ -200,16 +205,21 @@ class BulkImportQuestionController extends Controller
             }
 
             $orderNo = $startNo + $imported;
-            DB::transaction(function () use ($subtest, $questionText, $answerA, $answerB, $answerC, $answerD, $answerE, $discussion, $correctAnswer, $imagePath, $orderNo) {
+            DB::transaction(function () use ($subtest, $questionText, $answerA, $answerB, $answerC, $answerD, $answerE, $discussion, $correctAnswer, $questionType, $imagePath, $orderNo) {
                 $question = Question::create([
                     'subtest_id'     => $subtest->id,
+                    'question_type'  => $questionType,
                     'question_text'  => RichTextSanitizer::sanitize($questionText),
                     'question_image' => $imagePath,
                     'discussion'     => RichTextSanitizer::sanitize($discussion),
-                    'correct_answer' => $correctAnswer,
+                    'correct_answer' => $questionType === 'essay' ? null : $correctAnswer,
                     'order_no'       => $orderNo,
                     'is_active'      => true,
                 ]);
+
+                if ($questionType === 'essay') {
+                    return;
+                }
 
                 foreach (['A' => $answerA, 'B' => $answerB, 'C' => $answerC, 'D' => $answerD, 'E' => $answerE] as $key => $text) {
                     QuestionOption::create([
@@ -328,18 +338,21 @@ class BulkImportQuestionController extends Controller
             if (empty(array_filter($row))) continue;
 
             $data = $mapper($row, $lineNo);
+            $questionType = trim($data['correct']) === '' ? 'essay' : 'multiple_choice';
 
             $rowErrors = [];
             if (trim(strip_tags($data['question_text'])) === '') {
                 $rowErrors[] = 'Soal tidak boleh kosong.';
             }
-            foreach ($data['options'] as $key => $val) {
-                if (trim(strip_tags($val)) === '') {
-                    $rowErrors[] = "Jawaban {$key} tidak boleh kosong.";
+            if ($questionType === 'multiple_choice') {
+                foreach ($data['options'] as $key => $val) {
+                    if (trim(strip_tags($val)) === '') {
+                        $rowErrors[] = "Jawaban {$key} tidak boleh kosong.";
+                    }
                 }
-            }
-            if (!in_array($data['correct'], ['A', 'B', 'C', 'D', 'E'])) {
-                $rowErrors[] = "Kunci jawaban '{$data['correct']}' tidak valid.";
+                if (!in_array($data['correct'], ['A', 'B', 'C', 'D', 'E'])) {
+                    $rowErrors[] = "Kunci jawaban '{$data['correct']}' tidak valid.";
+                }
             }
 
             if (!empty($rowErrors)) {
@@ -356,15 +369,21 @@ class BulkImportQuestionController extends Controller
 
             $orderNo = $startNo + $imported;
             DB::transaction(function () use ($subtest, $data, $orderNo) {
+                $questionType = trim($data['correct']) === '' ? 'essay' : 'multiple_choice';
                 $question = Question::create([
                     'subtest_id'     => $subtest->id,
+                    'question_type'  => $questionType,
                     'question_text'  => RichTextSanitizer::sanitize($data['question_text']),
                     'question_image' => $data['image'],
                     'discussion'     => RichTextSanitizer::sanitize($data['discussion']),
-                    'correct_answer' => $data['correct'],
+                    'correct_answer' => $questionType === 'essay' ? null : $data['correct'],
                     'order_no'       => $orderNo,
                     'is_active'      => true,
                 ]);
+
+                if ($questionType === 'essay') {
+                    return;
+                }
 
                 foreach ($data['options'] as $key => $text) {
                     QuestionOption::create([
@@ -435,9 +454,10 @@ class BulkImportQuestionController extends Controller
         $sheet->setCellValue('A4', 'Catatan:');
         $sheet->setCellValue('A5', '- Kolom Gambar: embed gambar langsung ke cell (Insert → Pictures → Place in Cell)');
         $sheet->setCellValue('A6', '- Kunci Jawaban hanya boleh: A, B, C, D, atau E');
-        $sheet->setCellValue('A7', '- Baris pertama adalah header, data mulai dari baris 2');
-        $sheet->setCellValue('A8', '- Format gambar yang didukung: jpg, jpeg, png, webp');
-        $sheet->getStyle('A4:A8')->getFont()->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF666666'));
+        $sheet->setCellValue('A7', '- Kosongkan Kunci Jawaban untuk membuat soal Essay; opsi A-E boleh kosong');
+        $sheet->setCellValue('A8', '- Baris pertama adalah header, data mulai dari baris 2');
+        $sheet->setCellValue('A9', '- Format gambar yang didukung: jpg, jpeg, png, webp');
+        $sheet->getStyle('A4:A9')->getFont()->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF666666'));
 
         foreach (range('A', 'I') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);

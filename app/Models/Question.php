@@ -12,17 +12,20 @@ class Question extends Model
 
     protected $fillable = [
         'subtest_id',
+        'question_type',
         'question_text',
         'question_image',
         'discussion',
         'discussion_image',
         'correct_answer',
+        'randomize_options',
         'order_no',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'randomize_options' => 'boolean',
     ];
 
     protected $appends = [
