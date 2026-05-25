@@ -55,17 +55,18 @@ class AdminSalesReportController extends Controller
 
         $rows = DB::table('user_tryout_access as uta')
             ->join('tryouts as t', 't.id', '=', 'uta.tryout_id')
-            ->when($request->year,  fn($q, $y) => $q->whereRaw('YEAR(uta.granted_at) = ?',  [$y]))
+            ->when($request->year, fn($q, $y) => $q->whereRaw('YEAR(uta.granted_at) = ?', [$y]))
             ->when($request->month, fn($q, $m) => $q->whereRaw('MONTH(uta.granted_at) = ?', [$m]))
+            ->where('t.is_free', false)
             ->selectRaw('
-                t.id                         AS tryout_id,
-                t.title                      AS tryout_name,
-                YEAR(uta.granted_at)         AS year,
-                MONTH(uta.granted_at)        AS month,
-                MIN(DATE(uta.granted_at))    AS period_start,
-                COUNT(DISTINCT uta.user_id)  AS participant_count,
-                COUNT(uta.id)                AS access_count
-            ')
+            t.id                        AS tryout_id,
+            t.title                     AS tryout_name,
+            YEAR(uta.granted_at)        AS year,
+            MONTH(uta.granted_at)       AS month,
+            MIN(DATE(uta.granted_at))   AS period_start,
+            COUNT(DISTINCT uta.user_id) AS participant_count,
+            COUNT(uta.id)               AS access_count
+        ')
             ->groupByRaw('t.id, t.title, YEAR(uta.granted_at), MONTH(uta.granted_at)')
             ->orderByRaw('YEAR(uta.granted_at) DESC, MONTH(uta.granted_at) DESC, t.title ASC')
             ->get()
