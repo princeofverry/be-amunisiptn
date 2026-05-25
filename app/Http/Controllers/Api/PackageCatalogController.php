@@ -8,16 +8,16 @@ use Illuminate\Http\JsonResponse;
 
 class PackageCatalogController extends Controller
 {
-    public function index(): JsonResponse
-    {
-        $packages = Package::where('is_active', true)
-            ->latest()
-            ->get();
+public function index(): JsonResponse
+{
+    $packages = Package::where('is_active', true)
+        ->orderBy('price', 'asc')
+        ->get();
 
-        return response()->json([
-            'data' => $packages,
-        ]);
-    }
+    return response()->json([
+        'data' => $packages,
+    ]);
+}
 
     public function show(Package $package): JsonResponse
     {
