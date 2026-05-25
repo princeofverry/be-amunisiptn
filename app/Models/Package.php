@@ -14,6 +14,7 @@ class Package extends Model
         'name',
         'slug',
         'description',
+        'thumbnail',
         'price',
         'discount_price',
         'ticket_amount',
