@@ -248,6 +248,11 @@ class TryoutController extends Controller
             'showWatermarkImage' => true,
         ]);
 
-        return $pdf->download('Tryout_' . Str::slug($tryout->title) . '.pdf');
+        return $pdf->download('Tryout_' . Str::slug($tryout->title) . '.pdf')
+            ->withHeaders([
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+                'Access-Control-Expose-Headers' => 'Content-Disposition',
+            ]);
     }
 }
