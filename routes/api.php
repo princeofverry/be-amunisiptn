@@ -124,6 +124,7 @@ Route::middleware(['auth:sanctum', 'admin'])
 
         // --- TRYOUT & PENGATURAN TRYOUT ---
         Route::apiResource('tryouts', TryoutController::class);
+        Route::get('/tryouts/{tryout}/users/{user}/review', [TryoutController::class, 'userReview']);
         Route::apiResource('tryouts.subtests', TryoutSubtestController::class)
             ->parameters(['subtests' => 'tryoutSubtest'])
             ->except(['show']);

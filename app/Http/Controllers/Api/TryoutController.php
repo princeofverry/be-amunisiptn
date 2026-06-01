@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Question;
 use App\Models\Tryout;
+use App\Models\TryoutSession;
+use App\Models\TryoutSubtest;
+use App\Models\User;
+use App\Models\UserAnswer;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -125,6 +130,88 @@ class TryoutController extends Controller
 
         return response()->json([
             'message' => 'Tryout berhasil dihapus',
+        ]);
+    }
+
+    public function userReview(Request $request, Tryout $tryout, User $user): JsonResponse
+    {
+        $sessionQuery = TryoutSession::where('user_id', $user->id)
+            ->where('tryout_id', $tryout->id)
+            ->where('status', 'finished');
+
+        if ($request->filled('attempt')) {
+            $sessionQuery->where('attempt_number', (int) $request->query('attempt'));
+        }
+
+        $session = $sessionQuery->latest('created_at')->first();
+
+        if (! $session) {
+            return response()->json(['message' => 'Session tryout tidak ditemukan untuk user ini'], 404);
+        }
+
+        $subtestIds = TryoutSubtest::where('tryout_id', $tryout->id)->pluck('subtest_id');
+
+        $questions = Question::with(['options', 'subtest'])
+            ->whereIn('subtest_id', $subtestIds)
+            ->where('is_active', true)
+            ->orderBy('order_no')
+            ->get();
+
+        $userAnswers = UserAnswer::where('tryout_session_id', $session->id)
+            ->get()
+            ->keyBy('question_id');
+
+        $data = $questions->map(function ($question) use ($userAnswers, $tryout, $session) {
+            $answer = $userAnswers->get($question->id);
+            $options = $question->question_type === 'multiple_choice' && $tryout->randomize_options
+                ? $question->options->sortBy(function ($option) use ($session, $question) {
+                    return md5($session->id . $question->id . $option->id);
+                })->values()
+                : $question->options->values();
+
+            return [
+                'question_id' => $question->id,
+                'subtest' => [
+                    'id' => $question->subtest->id,
+                    'name' => $question->subtest->name,
+                ],
+                'question' => [
+                    'id' => $question->id,
+                    'question_type' => $question->question_type,
+                    'question_text' => $question->question_text,
+                    'question_image' => $question->question_image,
+                    'question_image_url' => $question->question_image_url,
+                    
+                    'discussion' => $question->discussion,
+                    'discussion_image' => $question->discussion_image,
+                    'discussion_image_url' => $question->discussion_image_url,
+                    
+                    'correct_answer' => $question->correct_answer,
+                    'options' => $options->map(function ($option) {
+                        return [
+                            'id' => $option->id,
+                            'option_key' => $option->option_key,
+                            'option_text' => $option->option_text,
+                        ];
+                    })->values(),
+                ],
+                'my_answer' => $answer?->answer,
+                'is_correct' => $answer?->is_correct,
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => [
+                'tryout_id' => $tryout->id,
+                'tryout_title' => $tryout->title,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'attempt_number' => $session->attempt_number,
+                'review' => $data,
+            ],
         ]);
     }
 }
