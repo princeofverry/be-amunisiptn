@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\KelasOrder;
 use App\Models\Order;
+use App\Models\TicketLog;
 use App\Models\User;
 use App\Models\UserKelasEnrollment;
 use App\Services\EnrollmentService;
@@ -162,6 +163,13 @@ class PaymentCallbackController extends Controller
             $user = User::lockForUpdate()->find($locked->user_id);
             if ($created) {
                 $user->ticket_balance += $locked->kelas->ticket_amount;
+                TicketLog::create([
+                    'user_id'     => $user->id,
+                    'type'        => 'credit',
+                    'amount'      => $locked->kelas->ticket_amount,
+                    'source'      => 'kelas',
+                    'description' => $locked->kelas->name,
+                ]);
             }
             $user->save();
         });

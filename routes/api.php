@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminSalesReportController;
 use App\Http\Controllers\Api\AdminTicketRedeemCodeController;
 use App\Http\Controllers\Api\BulkImportQuestionController;
+use App\Http\Controllers\Api\TicketLogController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,6 +54,7 @@ Route::prefix('auth')->controller(AuthController::class)->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/update', [ProfileController::class, 'update']);
     Route::post('/access-codes/redeem', [AccessCodeController::class, 'redeem']);
+    Route::get('/ticket-logs', [TicketLogController::class, 'index']);
     Route::get('/subtests', [SubtestController::class, 'index']);
 
     // Package & Orders

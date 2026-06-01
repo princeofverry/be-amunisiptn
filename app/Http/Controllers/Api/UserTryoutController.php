@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\TicketLog;
 use App\Models\Tryout;
 use App\Models\Question;
 use App\Models\TryoutSession;
@@ -138,6 +139,14 @@ class UserTryoutController extends Controller
                     'user_id' => $lockedUser->id,
                     'tryout_id' => $tryout->id,
                     'granted_at' => now(),
+                ]);
+
+                TicketLog::create([
+                    'user_id'     => $lockedUser->id,
+                    'type'        => 'debit',
+                    'amount'      => 1,
+                    'source'      => 'tryout',
+                    'description' => $tryout->title,
                 ]);
 
                 return $lockedUser->fresh()->ticket_balance;

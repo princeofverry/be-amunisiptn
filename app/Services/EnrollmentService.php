@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\TicketLog;
 use App\Models\User;
 use App\Models\UserPackageEnrollment;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,13 @@ class EnrollmentService
 
                 if ($created) {
                     $user->ticket_balance += $package->ticket_amount;
+                    TicketLog::create([
+                        'user_id'     => $user->id,
+                        'type'        => 'credit',
+                        'amount'      => $package->ticket_amount,
+                        'source'      => 'paket',
+                        'description' => $package->name,
+                    ]);
                 }
             }
 

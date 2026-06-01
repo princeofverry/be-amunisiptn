@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccessCode;
+use App\Models\TicketLog;
 use App\Models\TicketRedeemCode;
 use App\Models\TicketRedeemRedemption;
 use App\Models\User;
@@ -128,6 +129,14 @@ class AccessCodeController extends Controller
 
             $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             $lockedUser->increment('ticket_balance', $lockedCode->ticket_amount);
+
+            TicketLog::create([
+                'user_id'     => $lockedUser->id,
+                'type'        => 'credit',
+                'amount'      => $lockedCode->ticket_amount,
+                'source'      => 'redeem',
+                'description' => $lockedCode->code,
+            ]);
 
             TicketRedeemRedemption::create([
                 'ticket_redeem_code_id' => $lockedCode->id,
