@@ -218,43 +218,43 @@ class TryoutController extends Controller
     }
 
     public function exportPdf(Tryout $tryout)
-    {
-        $tryout->load(['tryoutSubtests.subtest', 'tryoutSubtests.subtest.questions.options']);
+{
+    $tryout->load(['tryoutSubtests.subtest', 'tryoutSubtests.subtest.questions.options']);
 
-        $subtests = $tryout->tryoutSubtests->map(function ($tryoutSubtest) {
-            $questions = $tryoutSubtest->subtest->questions
-                ->filter(fn ($q) => $q->is_active)
-                ->sortBy('order_no')
-                ->values();
-                
-            return [
-                'name' => $tryoutSubtest->subtest->name,
-                'duration' => $tryoutSubtest->duration_minutes,
-                'questions' => $questions
-            ];
-        });
+    $subtests = $tryout->tryoutSubtests->map(function ($tryoutSubtest) {
+        $questions = $tryoutSubtest->subtest->questions
+            ->filter(fn ($q) => $q->is_active)
+            ->sortBy('order_no')
+            ->values();
+            
+        return [
+            'name' => $tryoutSubtest->subtest->name,
+            'duration' => $tryoutSubtest->duration_minutes,
+            'questions' => $questions
+        ];
+    });
 
-        $pdf = PDF::loadView('pdf.tryout', [
-            'tryout' => $tryout,
-            'subtests' => $subtests,
-        ], [], [
-            'title' => 'Tryout ' . $tryout->title,
-            'margin_top' => 15,
-            'margin_bottom' => 15,
-            'margin_left' => 15,
-            'margin_right' => 15,
-            'watermarkImg' => public_path('images/logo/amunisiptn.png'),
-            'watermarkImgAlpha' => 0.15,
-            'showWatermarkImage' => true,
-        ]);
+    $origin = request()->header('Origin') ?: '*';
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept');
+    header('Access-Control-Allow-Credentials: true');
+    header('Access-Control-Expose-Headers: Content-Disposition');
 
-        return $pdf->download('Tryout_' . Str::slug($tryout->title) . '.pdf')
-            ->withHeaders([
-                'Access-Control-Allow-Origin' => request()->header('Origin') ?: '*',
-                'Access-Control-Allow-Methods' => 'GET, OPTIONS',
-                'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Accept',
-                'Access-Control-Allow-Credentials' => 'true',
-                'Access-Control-Expose-Headers' => 'Content-Disposition',
-            ]);
-    }
+    $pdf = PDF::loadView('pdf.tryout', [
+        'tryout' => $tryout,
+        'subtests' => $subtests,
+    ], [], [
+        'title' => 'Tryout ' . $tryout->title,
+        'margin_top' => 15,
+        'margin_bottom' => 15,
+        'margin_left' => 15,
+        'margin_right' => 15,
+        'watermarkImg' => public_path('images/logo/amunisiptn.png'),
+        'watermarkImgAlpha' => 0.15,
+        'showWatermarkImage' => true,
+    ]);
+
+    return $pdf->download('Tryout_' . Str::slug($tryout->title) . '.pdf');
+}
 }
