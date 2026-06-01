@@ -14,6 +14,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Meneses\LaravelMpdf\Facades\LaravelMpdf as PDF;
+use Illuminate\Support\Str;
 
 class TryoutController extends Controller
 {
@@ -213,5 +215,39 @@ class TryoutController extends Controller
                 'review' => $data,
             ],
         ]);
+    }
+
+    public function exportPdf(Tryout $tryout)
+    {
+        $tryout->load(['tryoutSubtests.subtest', 'tryoutSubtests.subtest.questions.options']);
+
+        $subtests = $tryout->tryoutSubtests->map(function ($tryoutSubtest) {
+            $questions = $tryoutSubtest->subtest->questions
+                ->filter(fn ($q) => $q->is_active)
+                ->sortBy('order_no')
+                ->values();
+                
+            return [
+                'name' => $tryoutSubtest->subtest->name,
+                'duration' => $tryoutSubtest->duration_minutes,
+                'questions' => $questions
+            ];
+        });
+
+        $pdf = PDF::loadView('pdf.tryout', [
+            'tryout' => $tryout,
+            'subtests' => $subtests,
+        ], [], [
+            'title' => 'Tryout ' . $tryout->title,
+            'margin_top' => 15,
+            'margin_bottom' => 15,
+            'margin_left' => 15,
+            'margin_right' => 15,
+            'watermarkImg' => public_path('images/logo/amunisiptn.png'),
+            'watermarkImgAlpha' => 0.15,
+            'showWatermarkImage' => true,
+        ]);
+
+        return $pdf->download('Tryout_' . Str::slug($tryout->title) . '.pdf');
     }
 }
