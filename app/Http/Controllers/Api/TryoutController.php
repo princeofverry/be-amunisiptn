@@ -250,8 +250,10 @@ class TryoutController extends Controller
 
         return $pdf->download('Tryout_' . Str::slug($tryout->title) . '.pdf')
             ->withHeaders([
-                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Origin' => request()->header('Origin') ?: '*',
                 'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+                'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Accept',
+                'Access-Control-Allow-Credentials' => 'true',
                 'Access-Control-Expose-Headers' => 'Content-Disposition',
             ]);
     }
