@@ -142,15 +142,17 @@ class OrderController extends Controller
         $fraudStatus       = $midtransStatus->fraud_status ?? 'accept';
 
         if (in_array($transactionStatus, ['capture', 'settlement']) && $fraudStatus === 'accept') {
-            if ($order->status !== 'paid') {
-                $enrollmentService->approveOrderAndGrantAccess($order, null);
-                $order->update([
-                    'status'                  => 'paid',
-                    'midtrans_transaction_id'  => $midtransStatus->transaction_id ?? null,
-                    'payment_reference'        => $midtransStatus->payment_type ?? null,
-                    'paid_at'                 => now(),
+            DB::transaction(function () use ($order, $midtransStatus, $enrollmentService) {
+                $locked = Order::lockForUpdate()->find($order->id);
+                if ($locked->status === 'paid') {
+                    return;
+                }
+                $enrollmentService->approveOrderAndGrantAccess($locked, null);
+                $locked->update([
+                    'midtrans_transaction_id' => $midtransStatus->transaction_id ?? null,
+                    'payment_reference'       => $midtransStatus->payment_type ?? null,
                 ]);
-            }
+            });
             return response()->json(['message' => 'Pembayaran dikonfirmasi.', 'status' => 'paid']);
         }
 

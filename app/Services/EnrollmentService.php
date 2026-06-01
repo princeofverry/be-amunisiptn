@@ -26,7 +26,7 @@ class EnrollmentService
             foreach ($order->items as $item) {
                 $package = $item->package;
 
-                UserPackageEnrollment::firstOrCreate(
+                [, $created] = UserPackageEnrollment::firstOrCreate(
                     [
                         'user_id' => $user->id,
                         'package_id' => $package->id,
@@ -37,7 +37,9 @@ class EnrollmentService
                     ]
                 );
 
-                $user->ticket_balance += $package->ticket_amount;
+                if ($created) {
+                    $user->ticket_balance += $package->ticket_amount;
+                }
             }
 
             $user->save();

@@ -66,18 +66,29 @@ class PaymentCallbackController extends Controller
         }
 
         // 6. Update status berdasarkan notifikasi
-        if ($transactionStatus == 'capture') {
-            if ($fraudStatus == 'accept') {
+        try {
+            if ($transactionStatus == 'capture') {
+                if ($fraudStatus == 'accept') {
+                    $this->processSuccessOrder($order, $request, $enrollmentService);
+                } else if ($fraudStatus == 'challenge') {
+                    $order->update(['status' => 'pending']);
+                }
+            } else if ($transactionStatus == 'settlement') {
                 $this->processSuccessOrder($order, $request, $enrollmentService);
-            } else if ($fraudStatus == 'challenge') {
-                $order->update(['status' => 'pending']);
+            } else if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
+                if ($order->status !== 'paid') {
+                    $order->update(['status' => 'cancelled']);
+                }
             }
-        } else if ($transactionStatus == 'settlement') {
-            $this->processSuccessOrder($order, $request, $enrollmentService);
-        } else if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-            if ($order->status !== 'paid') {
-                $order->update(['status' => 'cancelled']);
-            }
+        } catch (\Exception $e) {
+            Log::error('Midtrans Webhook Processing Failed', [
+                'order'   => $orderCode,
+                'status'  => $transactionStatus,
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            // Return 500 so Midtrans retries the notification automatically
+            return response()->json(['message' => 'Gagal memproses pembayaran, akan dicoba ulang'], 500);
         }
 
         return response()->json(['message' => 'Callback diproses']);
@@ -137,7 +148,7 @@ class PaymentCallbackController extends Controller
                 'payment_reference'       => $paymentType,
             ]);
 
-            UserKelasEnrollment::firstOrCreate(
+            [, $created] = UserKelasEnrollment::firstOrCreate(
                 [
                     'user_id'  => $locked->user_id,
                     'kelas_id' => $locked->kelas_id,
@@ -149,7 +160,9 @@ class PaymentCallbackController extends Controller
             );
 
             $user = User::lockForUpdate()->find($locked->user_id);
-            $user->ticket_balance += $locked->kelas->ticket_amount;
+            if ($created) {
+                $user->ticket_balance += $locked->kelas->ticket_amount;
+            }
             $user->save();
         });
     }
