@@ -7,6 +7,7 @@ use App\Models\TicketLog;
 use App\Models\User;
 use App\Models\UserPackageEnrollment;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class EnrollmentService
 {
@@ -27,23 +28,33 @@ class EnrollmentService
             foreach ($order->items as $item) {
                 $package = $item->package;
 
+                if (! $package) {
+                    Log::warning('EnrollmentService: package null untuk order item', [
+                        'order_id'      => $order->id,
+                        'order_item_id' => $item->id,
+                    ]);
+                    continue;
+                }
+
                 [, $created] = UserPackageEnrollment::firstOrCreate(
                     [
-                        'user_id' => $user->id,
+                        'user_id'    => $user->id,
                         'package_id' => $package->id,
                     ],
                     [
-                        'order_id' => $order->id,
+                        'order_id'    => $order->id,
                         'enrolled_at' => now(),
                     ]
                 );
 
-                if ($created) {
-                    $user->ticket_balance += $package->ticket_amount;
+                $ticketAmount = (int) ($package->ticket_amount ?? 0);
+
+                if ($created && $ticketAmount > 0) {
+                    $user->ticket_balance += $ticketAmount;
                     TicketLog::create([
                         'user_id'     => $user->id,
                         'type'        => 'credit',
-                        'amount'      => $package->ticket_amount,
+                        'amount'      => $ticketAmount,
                         'source'      => 'paket',
                         'description' => $package->name,
                     ]);
