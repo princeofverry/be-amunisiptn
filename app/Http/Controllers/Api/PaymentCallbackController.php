@@ -179,7 +179,7 @@ class PaymentCallbackController extends Controller
                 'payment_reference'       => $paymentType,
             ]);
 
-            [, $created] = UserKelasEnrollment::firstOrCreate(
+            UserKelasEnrollment::firstOrCreate(
                 [
                     'user_id'  => $locked->user_id,
                     'kelas_id' => $locked->kelas_id,
@@ -191,14 +191,22 @@ class PaymentCallbackController extends Controller
             );
 
             $user = User::lockForUpdate()->find($locked->user_id);
-            if ($created) {
-                $user->ticket_balance += $locked->kelas->ticket_amount;
+            $ticketAmount = (int) ($locked->kelas->ticket_amount ?? 0);
+
+            if ($ticketAmount > 0) {
+                $user->ticket_balance += $ticketAmount;
                 TicketLog::create([
                     'user_id'     => $user->id,
                     'type'        => 'credit',
-                    'amount'      => $locked->kelas->ticket_amount,
+                    'amount'      => $ticketAmount,
                     'source'      => 'kelas',
                     'description' => $locked->kelas->name,
+                ]);
+
+                Log::info('Midtrans Kelas: ticket granted', [
+                    'order_code' => $locked->order_code,
+                    'user_id'    => $user->id,
+                    'amount'     => $ticketAmount,
                 ]);
             }
             $user->save();

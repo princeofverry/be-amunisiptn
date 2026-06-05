@@ -188,7 +188,7 @@ class KelasOrderController extends Controller
                 'payment_reference'       => $midtransStatus->payment_type ?? null,
             ]);
 
-            [, $created] = UserKelasEnrollment::firstOrCreate(
+            UserKelasEnrollment::firstOrCreate(
                 [
                     'user_id'  => $locked->user_id,
                     'kelas_id' => $locked->kelas_id,
@@ -200,12 +200,14 @@ class KelasOrderController extends Controller
             );
 
             $userModel = User::lockForUpdate()->find($user->id);
-            if ($created) {
-                $userModel->ticket_balance += $locked->kelas->ticket_amount;
+            $ticketAmount = (int) ($locked->kelas->ticket_amount ?? 0);
+
+            if ($ticketAmount > 0) {
+                $userModel->ticket_balance += $ticketAmount;
                 TicketLog::create([
                     'user_id'     => $userModel->id,
                     'type'        => 'credit',
-                    'amount'      => $locked->kelas->ticket_amount,
+                    'amount'      => $ticketAmount,
                     'source'      => 'kelas',
                     'description' => $locked->kelas->name,
                 ]);
