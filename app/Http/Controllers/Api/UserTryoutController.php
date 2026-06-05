@@ -89,12 +89,17 @@ class UserTryoutController extends Controller
         if ($tryout->is_free) {
             
             $validator = Validator::make($request->all(), [
-                'proof_image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048']
+                'proof_images' => ['required', 'array', 'min:1', 'max:5'],
+                'proof_images.*' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             ], [
-                'proof_image.required' => 'Bukti follow sosial media wajib diunggah untuk mengikuti tryout gratis.',
-                'proof_image.image' => 'Bukti harus berupa gambar.',
-                'proof_image.mimes' => 'Format gambar harus jpeg, png, jpg, atau webp.',
-                'proof_image.max' => 'Ukuran gambar maksimal 2MB.'
+                'proof_images.required' => 'Bukti follow Instagram wajib diunggah untuk mengikuti tryout gratis.',
+                'proof_images.array' => 'Bukti follow harus dikirim sebagai daftar gambar.',
+                'proof_images.min' => 'Minimal unggah 1 bukti follow Instagram.',
+                'proof_images.max' => 'Maksimal unggah 5 bukti follow Instagram.',
+                'proof_images.*.required' => 'Setiap bukti follow wajib berupa gambar.',
+                'proof_images.*.image' => 'Setiap bukti harus berupa gambar.',
+                'proof_images.*.mimes' => 'Format gambar harus jpeg, png, jpg, atau webp.',
+                'proof_images.*.max' => 'Ukuran setiap gambar maksimal 2MB.',
             ]);
 
             if ($validator->fails()) {
@@ -104,13 +109,17 @@ class UserTryoutController extends Controller
                 ], 422);
             }
 
-            $proofPath = $request->file('proof_image')->store('proof-images', 'public');
+            $proofPaths = collect($request->file('proof_images', []))
+                ->map(fn ($file) => $file->store('proof-images', 'public'))
+                ->values()
+                ->all();
 
-            DB::transaction(function () use ($user, $tryout, $proofPath) {
+            DB::transaction(function () use ($user, $tryout, $proofPaths) {
                 UserTryoutAccess::create([
                     'user_id' => $user->id,
                     'tryout_id' => $tryout->id,
-                    'proof_image' => $proofPath,
+                    'proof_image' => $proofPaths[0] ?? null,
+                    'proof_images' => $proofPaths,
                     'granted_at' => now(),
                 ]);
             });

@@ -16,12 +16,14 @@ class UserTryoutAccess extends Model
         'tryout_id',
         'access_code_id',
         'proof_image',
+        'proof_images',
         'discussion_unlocked',
         'granted_at',
     ];
 
     protected $casts = [
         'granted_at' => 'datetime',
+        'proof_images' => 'array',
         'discussion_unlocked' => 'boolean',
     ];
 
