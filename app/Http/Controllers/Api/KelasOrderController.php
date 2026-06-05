@@ -151,7 +151,14 @@ class KelasOrderController extends Controller
             if ($kelasOrder->status !== 'paid') {
                 $this->processKelasPayment($kelasOrder, $request->user(), $midtransStatus);
             }
-            return response()->json(['message' => 'Pembayaran dikonfirmasi.', 'status' => 'paid']);
+
+            $freshTicketBalance = User::find($kelasOrder->user_id)?->ticket_balance ?? 0;
+
+            return response()->json([
+                'message'        => 'Pembayaran dikonfirmasi.',
+                'status'         => 'paid',
+                'ticket_balance' => $freshTicketBalance,
+            ]);
         }
 
         if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Package;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\EnrollmentService;
 use Illuminate\Http\JsonResponse;
@@ -153,7 +154,16 @@ class OrderController extends Controller
                     'payment_reference'       => $midtransStatus->payment_type ?? null,
                 ]);
             });
-            return response()->json(['message' => 'Pembayaran dikonfirmasi.', 'status' => 'paid']);
+
+            // Kembalikan ticket_balance terbaru dari DB agar frontend
+            // tidak perlu optimistic guess — pakai nilai asli
+            $freshTicketBalance = User::find($order->user_id)?->ticket_balance ?? 0;
+
+            return response()->json([
+                'message'        => 'Pembayaran dikonfirmasi.',
+                'status'         => 'paid',
+                'ticket_balance' => $freshTicketBalance,
+            ]);
         }
 
         if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
