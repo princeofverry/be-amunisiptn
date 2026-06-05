@@ -47,7 +47,10 @@ class EnrollmentService
                     ]
                 );
 
-                $ticketAmount = (int) ($package->ticket_amount ?? 0);
+                // Gunakan snapshot agar tidak terpengaruh perubahan harga/tiket oleh admin
+                $ticketAmount = (int) ($item->ticket_amount_snapshot
+                    ?? $package->ticket_amount
+                    ?? 0);
 
                 if ($created && $ticketAmount > 0) {
                     $user->ticket_balance += $ticketAmount;
@@ -56,7 +59,7 @@ class EnrollmentService
                         'type'        => 'credit',
                         'amount'      => $ticketAmount,
                         'source'      => 'paket',
-                        'description' => $package->name,
+                        'description' => $item->package_name_snapshot,
                     ]);
                 }
             }

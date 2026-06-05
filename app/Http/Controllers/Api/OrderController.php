@@ -83,12 +83,13 @@ class OrderController extends Controller
             ]);
 
             OrderItem::create([
-                'order_id' => $order->id,
-                'package_id' => $package->id,
-                'package_name_snapshot' => $package->name,
-                'price' => $finalPrice,
-                'qty' => 1,
-                'subtotal' => $finalPrice,
+                'order_id'               => $order->id,
+                'package_id'             => $package->id,
+                'package_name_snapshot'  => $package->name,
+                'ticket_amount_snapshot' => (int) ($package->ticket_amount ?? 0),
+                'price'                  => $finalPrice,
+                'qty'                    => 1,
+                'subtotal'               => $finalPrice,
             ]);
 
             return $order;

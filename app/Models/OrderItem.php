@@ -13,15 +13,17 @@ class OrderItem extends Model
         'order_id',
         'package_id',
         'package_name_snapshot',
+        'ticket_amount_snapshot',
         'price',
         'qty',
         'subtotal',
     ];
 
     protected $casts = [
-        'price' => 'integer',
-        'subtotal' => 'integer',
-        'qty' => 'integer',
+        'price'                  => 'integer',
+        'subtotal'               => 'integer',
+        'qty'                    => 'integer',
+        'ticket_amount_snapshot' => 'integer',
     ];
 
     public function order()
