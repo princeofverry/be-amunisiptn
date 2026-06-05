@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class UserTryoutController extends Controller
@@ -89,12 +90,12 @@ class UserTryoutController extends Controller
         if ($tryout->is_free) {
             
             $validator = Validator::make($request->all(), [
-                'proof_images' => ['required', 'array', 'min:1', 'max:5'],
+                'proof_images' => ['required', 'array', 'min:2', 'max:5'],
                 'proof_images.*' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             ], [
                 'proof_images.required' => 'Bukti follow Instagram wajib diunggah untuk mengikuti tryout gratis.',
                 'proof_images.array' => 'Bukti follow harus dikirim sebagai daftar gambar.',
-                'proof_images.min' => 'Minimal unggah 1 bukti follow Instagram.',
+                'proof_images.min' => 'Minimal unggah 2 bukti follow Instagram.',
                 'proof_images.max' => 'Maksimal unggah 5 bukti follow Instagram.',
                 'proof_images.*.required' => 'Setiap bukti follow wajib berupa gambar.',
                 'proof_images.*.image' => 'Setiap bukti harus berupa gambar.',
@@ -741,7 +742,7 @@ class UserTryoutController extends Controller
         ]);
     }
 
-    public function leaderboard(Tryout $tryout): JsonResponse
+    public function leaderboard(Request $request, Tryout $tryout): JsonResponse
     {
         $subtestIds = TryoutSubtest::where('tryout_id', $tryout->id)->pluck('subtest_id');
         $totalQuestions = Question::whereIn('subtest_id', $subtestIds)
@@ -753,6 +754,11 @@ class UserTryoutController extends Controller
             ->where('attempt_number', 1)
             ->where('status', 'finished')
             ->get();
+
+        $includeProofImages = $request->user()?->role === 'admin';
+        $proofsByUser = $includeProofImages
+            ? UserTryoutAccess::where('tryout_id', $tryout->id)->get()->keyBy('user_id')
+            : collect();
 
         $questionWeights = [];
         $totalWeightAll = 0;
@@ -782,7 +788,7 @@ class UserTryoutController extends Controller
         }
 
         $leaderboard = $sessions
-            ->map(function ($session) use ($totalQuestions, $tryout, $questionWeights, $totalWeightAll) {
+            ->map(function ($session) use ($totalQuestions, $tryout, $questionWeights, $totalWeightAll, $includeProofImages, $proofsByUser) {
                 $answered = $session->answers->whereNotNull('answer')->count();
                 $correct = $session->answers->where('is_correct', true)->count();
                 $wrong = $session->answers->where('is_correct', false)->count();
@@ -799,7 +805,7 @@ class UserTryoutController extends Controller
                     $finalScore = $totalQuestions > 0 ? ($correct / $totalQuestions) * 1000 : 0;
                 }
 
-                return [
+                $row = [
                     'user_id' => $session->user_id,
                     'user_name' => $session->user?->name ?? 'Peserta',
                     'attempt_number' => $session->attempt_number,
@@ -818,6 +824,20 @@ class UserTryoutController extends Controller
                         'final_score' => round($finalScore, 2),
                     ],
                 ];
+
+                if ($includeProofImages) {
+                    $access = $proofsByUser->get($session->user_id);
+                    $proofImages = collect($access?->proof_images ?: ($access?->proof_image ? [$access->proof_image] : []))
+                        ->filter()
+                        ->values();
+
+                    $row['proof_images'] = $proofImages->all();
+                    $row['proof_image_urls'] = $proofImages
+                        ->map(fn ($path) => asset(Storage::disk('public')->url($path)))
+                        ->all();
+                }
+
+                return $row;
             })
             ->sortBy([
                 ['score.final_score', 'desc'],

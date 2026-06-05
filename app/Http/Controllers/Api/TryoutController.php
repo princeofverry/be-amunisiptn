@@ -72,8 +72,18 @@ class TryoutController extends Controller
 
     public function show(Tryout $tryout): JsonResponse
     {
-        $tryout->load(['creator', 'tryoutSubtests.subtest'])
+        $tryout->load(['creator', 'tryoutSubtests.subtest', 'userAccesses.user'])
             ->loadCount('userAccesses');
+
+        $tryout->userAccesses->each(function ($access) {
+            $proofImages = collect($access->proof_images ?: ($access->proof_image ? [$access->proof_image] : []))
+                ->filter()
+                ->values();
+
+            $access->setAttribute('proof_image_urls', $proofImages
+                ->map(fn ($path) => asset(Storage::disk('public')->url($path)))
+                ->all());
+        });
 
         return response()->json([
             'data' => $tryout,
