@@ -124,9 +124,11 @@ class OrderController extends Controller
         abort_unless($order->user_id === $request->user()->id, 403);
 
         if (in_array($order->status, ['paid', 'approved', 'cancelled', 'rejected'])) {
+            $ticketBalance = User::find($order->user_id)?->ticket_balance ?? 0;
             return response()->json([
-                'message' => 'Order sudah diproses.',
-                'status'  => $order->status,
+                'message'        => 'Order sudah diproses.',
+                'status'         => $order->status,
+                'ticket_balance' => $ticketBalance,
             ]);
         }
 

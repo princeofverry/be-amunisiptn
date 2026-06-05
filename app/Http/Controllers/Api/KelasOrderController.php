@@ -129,9 +129,11 @@ class KelasOrderController extends Controller
         abort_unless($kelasOrder->user_id === $request->user()->id, 403);
 
         if (in_array($kelasOrder->status, ['paid', 'cancelled', 'expired'])) {
+            $ticketBalance = User::find($kelasOrder->user_id)?->ticket_balance ?? 0;
             return response()->json([
-                'message' => 'Order sudah diproses.',
-                'status'  => $kelasOrder->status,
+                'message'        => 'Order sudah diproses.',
+                'status'         => $kelasOrder->status,
+                'ticket_balance' => $ticketBalance,
             ]);
         }
 
