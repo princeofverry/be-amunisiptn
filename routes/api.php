@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\AdminStatsController;
 use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminSalesReportController;
 use App\Http\Controllers\Api\AdminTicketRedeemCodeController;
+use App\Http\Controllers\Api\AdminTryoutProofController;
 use App\Http\Controllers\Api\BulkImportQuestionController;
 use App\Http\Controllers\Api\TicketLogController;
 use Illuminate\Support\Facades\Route;
@@ -108,6 +109,7 @@ Route::middleware(['auth:sanctum', 'admin'])
         Route::get('/stats', [AdminStatsController::class, 'index']);
         Route::get('/sales-report', [AdminSalesReportController::class, 'index']);
         Route::get('/fee-to-report', [AdminSalesReportController::class, 'feeTryout']);
+        Route::get('/tryout-proof-images', [AdminTryoutProofController::class, 'index']);
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('/audit-logs/modules', [AdminAuditLogController::class, 'modules']);
         Route::apiResource('ticket-redeem-codes', AdminTicketRedeemCodeController::class)
