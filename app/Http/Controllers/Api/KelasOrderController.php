@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Kelas;
 use App\Models\KelasOrder;
+use App\Models\TicketLog;
 use App\Models\User;
 use App\Models\UserKelasEnrollment;
 use App\Services\AuditLogger;
@@ -178,7 +179,7 @@ class KelasOrderController extends Controller
                 'payment_reference'       => $midtransStatus->payment_type ?? null,
             ]);
 
-            UserKelasEnrollment::firstOrCreate(
+            [, $created] = UserKelasEnrollment::firstOrCreate(
                 [
                     'user_id'  => $locked->user_id,
                     'kelas_id' => $locked->kelas_id,
@@ -190,7 +191,16 @@ class KelasOrderController extends Controller
             );
 
             $userModel = User::lockForUpdate()->find($user->id);
-            $userModel->ticket_balance += $locked->kelas->ticket_amount;
+            if ($created) {
+                $userModel->ticket_balance += $locked->kelas->ticket_amount;
+                TicketLog::create([
+                    'user_id'     => $userModel->id,
+                    'type'        => 'credit',
+                    'amount'      => $locked->kelas->ticket_amount,
+                    'source'      => 'kelas',
+                    'description' => $locked->kelas->name,
+                ]);
+            }
             $userModel->save();
         });
 

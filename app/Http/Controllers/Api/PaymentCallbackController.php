@@ -17,19 +17,17 @@ class PaymentCallbackController extends Controller
 {
     public function handle(Request $request, EnrollmentService $enrollmentService)
     {
-        // 1. Logging Request untuk keperluan Debugging
         Log::info('Midtrans Webhook Received', $request->all());
 
-        $serverKey = config('midtrans.server_key');
-
+        $serverKey         = config('midtrans.server_key');
         $orderCode         = $request->order_id;
         $statusCode        = $request->status_code;
         $grossAmount       = $request->gross_amount;
         $signatureKey      = $request->signature_key;
         $transactionStatus = $request->transaction_status;
-        $fraudStatus       = $request->fraud_status;
+        $fraudStatus       = $request->fraud_status ?? null;
 
-        // 2. Validasi Keamanan: Cek Signature Key
+        // Validasi Signature
         $validSignature = hash('sha512', $orderCode . $statusCode . $grossAmount . $serverKey);
 
         if ($validSignature !== $signatureKey) {
@@ -37,26 +35,21 @@ class PaymentCallbackController extends Controller
             return response()->json(['message' => 'Invalid signature key'], 403);
         }
 
-        // 3. Routing berdasarkan prefix order code
+        // Routing berdasarkan prefix
         if (str_starts_with($orderCode, 'KLAS-')) {
-            return $this->handleKelasCallback(
-                $request,
-                $orderCode,
-                $grossAmount,
-                $transactionStatus,
-                $fraudStatus
-            );
+            return $this->handleKelasCallback($request, $orderCode, $grossAmount, $transactionStatus, $fraudStatus);
         }
 
-        // 4. Cari Order package berdasarkan Order Code
+        // Cari Order
         $order = Order::where('order_code', $orderCode)->first();
 
         if (!$order) {
+            // Return 200 agar Midtrans tidak terus retry untuk order yang memang tidak ada
             Log::error('Midtrans Order Not Found', ['order' => $orderCode]);
-            return response()->json(['message' => 'Order tidak ditemukan'], 404);
+            return response()->json(['message' => 'Order tidak ditemukan'], 200);
         }
 
-        // 5. Validasi Nominal Pembayaran
+        // Validasi Nominal
         if ((float) $order->grand_total !== (float) $grossAmount) {
             Log::critical('Midtrans Gross Amount Mismatch!', [
                 'order'          => $orderCode,
@@ -66,29 +59,48 @@ class PaymentCallbackController extends Controller
             return response()->json(['message' => 'Nominal pembayaran tidak valid'], 400);
         }
 
-        // 6. Update status berdasarkan notifikasi
+        // Proses berdasarkan status
         try {
-            if ($transactionStatus == 'capture') {
-                if ($fraudStatus == 'accept') {
-                    $this->processSuccessOrder($order, $request, $enrollmentService);
-                } else if ($fraudStatus == 'challenge') {
-                    $order->update(['status' => 'pending']);
-                }
-            } else if ($transactionStatus == 'settlement') {
+            if ($transactionStatus === 'settlement') {
                 $this->processSuccessOrder($order, $request, $enrollmentService);
-            } else if (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-                if ($order->status !== 'paid') {
-                    $order->update(['status' => 'cancelled']);
+            } elseif ($transactionStatus === 'capture') {
+                if ($fraudStatus === 'accept') {
+                    $this->processSuccessOrder($order, $request, $enrollmentService);
+                } elseif ($fraudStatus === 'challenge') {
+                    Log::warning('Midtrans Fraud Challenge', ['order' => $orderCode]);
+                    // Tidak ubah status — tunggu keputusan fraud review dari Midtrans
                 }
+            } elseif ($transactionStatus === 'pending') {
+                // QRIS/transfer yang belum settle — log saja, jangan ubah status order
+                Log::info('Midtrans Payment Pending', [
+                    'order'        => $orderCode,
+                    'payment_type' => $request->payment_type,
+                ]);
+            } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire', 'failure'])) {
+                DB::transaction(function () use ($order, $transactionStatus) {
+                    $locked = Order::lockForUpdate()->find($order->id);
+                    if ($locked->status !== 'paid') {
+                        $locked->update(['status' => 'cancelled']);
+                        Log::info('Midtrans Order Cancelled/Expired', [
+                            'order'  => $locked->order_code,
+                            'reason' => $transactionStatus,
+                        ]);
+                    }
+                });
+            } else {
+                Log::info('Midtrans Unhandled Status', [
+                    'order'  => $orderCode,
+                    'status' => $transactionStatus,
+                ]);
             }
         } catch (\Exception $e) {
             Log::error('Midtrans Webhook Processing Failed', [
-                'order'   => $orderCode,
-                'status'  => $transactionStatus,
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
+                'order'  => $orderCode,
+                'status' => $transactionStatus,
+                'error'  => $e->getMessage(),
+                'trace'  => $e->getTraceAsString(),
             ]);
-            // Return 500 so Midtrans retries the notification automatically
+            // Return 500 agar Midtrans retry otomatis
             return response()->json(['message' => 'Gagal memproses pembayaran, akan dicoba ulang'], 500);
         }
 
@@ -105,11 +117,11 @@ class PaymentCallbackController extends Controller
         $kelasOrder = KelasOrder::where('order_code', $orderCode)->first();
 
         if (!$kelasOrder) {
+            // Return 200 agar Midtrans tidak terus retry
             Log::error('Midtrans Kelas Order Not Found', ['order' => $orderCode]);
-            return response()->json(['message' => 'Order tidak ditemukan'], 404);
+            return response()->json(['message' => 'Order tidak ditemukan'], 200);
         }
 
-        // Validasi nominal pembayaran
         if ((float) $kelasOrder->grand_total !== (float) $grossAmount) {
             Log::critical('Midtrans Kelas Gross Amount Mismatch!', [
                 'order'          => $orderCode,
@@ -119,15 +131,34 @@ class PaymentCallbackController extends Controller
             return response()->json(['message' => 'Nominal tidak valid'], 400);
         }
 
-        if ($transactionStatus == 'settlement' || ($transactionStatus == 'capture' && $fraudStatus == 'accept')) {
-            $this->processKelasOrder($kelasOrder, $request->transaction_id, $request->payment_type);
-        } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire'])) {
-            DB::transaction(function () use ($kelasOrder) {
-                $locked = KelasOrder::lockForUpdate()->find($kelasOrder->id);
-                if ($locked->status !== 'paid') {
-                    $locked->update(['status' => 'cancelled']);
-                }
-            });
+        try {
+            if ($transactionStatus === 'settlement' || ($transactionStatus === 'capture' && $fraudStatus === 'accept')) {
+                $this->processKelasOrder($kelasOrder, $request->transaction_id, $request->payment_type);
+            } elseif ($transactionStatus === 'pending') {
+                Log::info('Midtrans Kelas Payment Pending', [
+                    'order'        => $orderCode,
+                    'payment_type' => $request->payment_type,
+                ]);
+            } elseif (in_array($transactionStatus, ['cancel', 'deny', 'expire', 'failure'])) {
+                DB::transaction(function () use ($kelasOrder, $transactionStatus) {
+                    $locked = KelasOrder::lockForUpdate()->find($kelasOrder->id);
+                    if ($locked->status !== 'paid') {
+                        $locked->update(['status' => 'cancelled']);
+                        Log::info('Midtrans Kelas Order Cancelled/Expired', [
+                            'order'  => $locked->order_code,
+                            'reason' => $transactionStatus,
+                        ]);
+                    }
+                });
+            }
+        } catch (\Exception $e) {
+            Log::error('Midtrans Kelas Webhook Processing Failed', [
+                'order'  => $orderCode,
+                'status' => $transactionStatus,
+                'error'  => $e->getMessage(),
+                'trace'  => $e->getTraceAsString(),
+            ]);
+            return response()->json(['message' => 'Gagal memproses, akan dicoba ulang'], 500);
         }
 
         return response()->json(['message' => 'Callback diproses']);
@@ -136,7 +167,6 @@ class PaymentCallbackController extends Controller
     private function processKelasOrder(KelasOrder $order, ?string $transactionId = null, ?string $paymentType = null): void
     {
         DB::transaction(function () use ($order, $transactionId, $paymentType) {
-            // Re-fetch with lock to prevent concurrent webhook race condition
             $locked = KelasOrder::lockForUpdate()->find($order->id);
             if ($locked->status === 'paid') {
                 return;
@@ -183,13 +213,16 @@ class PaymentCallbackController extends Controller
                 return;
             }
 
+            // approveOrderAndGrantAccess: set status=paid, grant tiket, buat enrollment
             $enrollmentService->approveOrderAndGrantAccess($locked, null);
 
+            // Refresh agar tidak overwrite perubahan dari service dengan data stale
+            $locked->refresh();
+
+            // Simpan data referensi Midtrans yang tidak dihandle oleh service
             $locked->update([
-                'status'                  => 'paid',
                 'midtrans_transaction_id' => $request->transaction_id,
                 'payment_reference'       => $request->payment_type,
-                'paid_at'                 => now(),
             ]);
         });
     }
